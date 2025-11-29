@@ -78,9 +78,8 @@ const Header = ({ toggleCart }) => {
               hover: { x: 0 }
             }}
             transition={{ duration: 0.4 }}
-            className="absolute inset-0 bg-gold flex items-center justify-center text-black z-20"
+            className="absolute inset-0 bg-transparent flex items-center justify-center text-black z-20"
           >
-            CART
           </motion.span>
 
           <motion.span
