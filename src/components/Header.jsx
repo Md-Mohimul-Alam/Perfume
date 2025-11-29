@@ -18,7 +18,7 @@ const Header = ({ toggleCart }) => {
           className="logo font-display text-2xl text-white font-light tracking-[0.5em] uppercase relative overflow-hidden"
           whileHover="hover"
         >
-          LUXE
+          <img src="/logo.jpg" alt="Logo" className="w-20 h-20 object-cover rounded-full" />
           <motion.div
             className="absolute bottom-0 left-0 w-full h-px bg-gold"
             variants={{
