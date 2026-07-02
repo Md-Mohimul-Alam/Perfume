@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ShoppingCart, Eye, RefreshCw } from 'lucide-react';
+import { Heart, ShoppingCart, Eye } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import API from '../api/axios';
 
@@ -35,16 +35,13 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
         rawProducts = response.data.items;
       }
 
-      console.log('📦 Raw products count:', rawProducts.length);
       const transformedProducts = rawProducts
         .filter(product => product && product._id)
         .map(transformProduct)
-        .filter(p => p.basePrice > 0 || p.sizes?.length > 0); // remove products with no valid sizes
+        .filter(p => p.sizes?.length > 0); // keep only products with at least one valid size
 
-      console.log('✅ Transformed products count:', transformedProducts.length);
       setProducts(transformedProducts);
     } catch (err) {
-      console.error('❌ Fetch error:', err);
       setError(err.response?.data?.message || "Failed to load products.");
     } finally {
       setLoading(false);
@@ -88,7 +85,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
       isBestseller: backendProduct.isBestseller || false,
       images: backendProduct.images || [],
       backendData: backendProduct,
-      sizes: validSizes, // store for quick add
+      sizes: validSizes,
     };
   };
 
@@ -98,34 +95,24 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     const sizes = product.sizes || [];
     if (sizes.length === 0) return;
     const sorted = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
-    const defaultSize = sorted[0];
-    addToCart(product, defaultSize);
+    addToCart(product, sorted[0]);
   };
 
-  // Filter products – with debug log
+  // Filter products
   const filteredProducts = products.filter(product => {
-    let match = true;
     switch (currentFilter) {
       case 'perfume':
-        match = product.category === 'perfume';
-        break;
+        return product.category === 'perfume';
       case 'oil':
-        match = product.category === 'oil';
-        break;
+        return product.category === 'oil';
       case 'new':
-        match = product.isNew;
-        break;
+        return product.isNew;
       case 'bestsellers':
-        match = product.isBestseller;
-        break;
+        return product.isBestseller;
       default:
-        match = true;
+        return true;
     }
-    return match;
   });
-
-  // Debug: log filtered count
-  console.log(`🔍 Filter: ${currentFilter}, Products: ${filteredProducts.length}`);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -191,9 +178,9 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
           Discover our premium selection of fragrances and oils
         </motion.p>
 
-        {/* Filter Tabs + Refresh */}
-        <div className="flex justify-between items-center mb-16 flex-wrap gap-4">
-          <div className="filter-tabs text-white flex justify-center gap-4 flex-wrap">
+        {/* Filter Tabs with product count */}
+        <div className="flex flex-col items-center gap-4 mb-16">
+          <div className="filter-tabs text-white flex flex-wrap justify-center gap-4">
             {[
               { key: 'all', label: 'All Products' },
               { key: 'perfume', label: 'Perfumes' },
@@ -205,25 +192,23 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
               return (
                 <motion.button
                   key={filter.key}
-                  className={`px-7 py-3 border border-gold/30 text-sm tracking-wider uppercase font-light relative overflow-hidden transition-all duration-300 ${
-                    isActive ? 'bg-gold text-black' : 'text-white hover:bg-gold/10'
+                  className={`px-7 py-3 border border-gold/30 text-sm tracking-wider uppercase font-light transition-all duration-300 ${
+                    isActive
+                      ? 'bg-gold text-black border-gold'
+                      : 'text-white hover:bg-gold/10 hover:border-gold/60'
                   }`}
                   onClick={() => setCurrentFilter(filter.key)}
                   whileTap={{ scale: 0.95 }}
                 >
-                  <span className="relative z-10">{filter.label}</span>
+                  {filter.label}
                 </motion.button>
               );
             })}
           </div>
-
-          {/* Refresh button */}
-          <button
-            onClick={fetchProducts}
-            className="text-gold border border-gold/30 px-4 py-2 rounded hover:bg-gold hover:text-black transition-colors flex items-center gap-2"
-          >
-            <RefreshCw size={16} /> Refresh
-          </button>
+          {/* Show number of products in current filter */}
+          <p className="text-gray-400 text-sm">
+            {filteredProducts.length} product{filteredProducts.length !== 1 && 's'} found
+          </p>
         </div>
 
         {/* Products Grid */}
@@ -233,7 +218,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
             <p>No products found matching your criteria.</p>
             <button
               onClick={() => setCurrentFilter('all')}
-              className="mt-4 text-gold underline"
+              className="mt-4 text-gold underline hover:text-gold/80"
             >
               Show all products
             </button>
