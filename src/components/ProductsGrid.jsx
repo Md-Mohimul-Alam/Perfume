@@ -196,6 +196,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
               whileHover="hover"
               whileTap={{ scale: 0.95 }}
             >
+              {/* Text – stays on top */}
               <motion.span
                 variants={{
                   hover: { x: currentFilter === filter.key ? 0 : -100 }
@@ -205,12 +206,17 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
               >
                 {filter.label}
               </motion.span>
+
+              {/* Gold sliding background – behind text, hidden initially */}
               <motion.span
                 variants={{
-                  hover: { x: 0 }
+                  hover: { x: 0 },
+                  initial: { x: '-100%' } // ← starts off-screen left
                 }}
+                initial="initial"
+                animate="initial"
                 transition={{ duration: 0.4 }}
-                className="absolute inset-0 bg-gold flex items-center justify-center z-20"
+                className="absolute inset-0 bg-gold z-0" // ← lower z-index
               />
             </motion.button>
           ))}
