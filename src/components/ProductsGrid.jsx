@@ -4,20 +4,6 @@ import { Heart, ShoppingCart, Eye } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import API from '../api/axios';
 
-const sizeConfig = {
-  perfume: [
-    { size: "6ml", multiplier: 1 },
-    { size: "15ml", multiplier: 1.6 },
-    { size: "30ml", multiplier: 2.6 }
-  ],
-  oil: [
-    { size: "3.5ml", multiplier: 0.8 },
-    { size: "6ml", multiplier: 1.12 },
-    { size: "15ml", multiplier: 1.8 },
-    { size: "30ml", multiplier: 2.8 }
-  ]
-};
-
 const productEmojis = {
   perfume: '🌸',
   oil: '💧'
@@ -37,15 +23,9 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
         setLoading(true);
         setError(null);
 
-        // Request all products (adjust limit if your backend supports it)
         const response = await API.get("/products?limit=10000");
 
-        console.log("========== API RESPONSE ==========");
-        console.log(response.data);
-
         let rawProducts = [];
-
-        // Handle different API response formats
         if (Array.isArray(response.data)) {
           rawProducts = response.data;
         } else if (Array.isArray(response.data.products)) {
@@ -56,27 +36,13 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
           rawProducts = response.data.items;
         }
 
-        console.log("Products received:", rawProducts.length);
-
         const transformedProducts = rawProducts
           .filter(product => product && product._id)
           .map(transformProduct);
 
-        console.log("Products after transform:", transformedProducts.length);
-
         setProducts(transformedProducts);
       } catch (err) {
-        console.error("Fetch Error:", err);
-
-        if (err.response) {
-          console.log("Status:", err.response.status);
-          console.log("Response:", err.response.data);
-        }
-
-        setError(
-          err.response?.data?.message ||
-          "Failed to load products. Please try again."
-        );
+        setError(err.response?.data?.message || "Failed to load products.");
       } finally {
         setLoading(false);
       }
@@ -85,24 +51,23 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     fetchProducts();
   }, []);
 
-  // Transform backend product to frontend product format
-// Transform backend product to frontend product format
+  // Transform backend product – exclude 3ml sizes for price & quick add
   const transformProduct = (backendProduct) => {
     const isSpray = backendProduct.type === 'spray';
     const category = isSpray ? 'perfume' : 'oil';
 
+    // Get sizes excluding 3ml
+    const validSizes = (backendProduct.sizes || []).filter(s => s.sizeMl !== 3);
     let basePrice = 0;
-    if (backendProduct.sizes && backendProduct.sizes.length > 0) {
-      const prices = backendProduct.sizes.map(s => s.sellingPrice || 0);
+    if (validSizes.length > 0) {
+      const prices = validSizes.map(s => s.sellingPrice || 0);
       basePrice = Math.min(...prices);
     }
 
-    // Use provided notes or fallback to blend components
-    let notes = backendProduct.notes && backendProduct.notes.length > 0
+    const notes = backendProduct.notes?.length > 0
       ? backendProduct.notes
       : backendProduct.blendComponents?.map(c => c.material?.name || '') || ['Premium'];
 
-    // Determine if product is new (within 30 days)
     const isNew = backendProduct.createdAt &&
       (new Date() - new Date(backendProduct.createdAt)) < 30 * 24 * 60 * 60 * 1000;
 
@@ -111,23 +76,27 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
       name: backendProduct.name,
       category: category,
       description: backendProduct.description || `${backendProduct.name} – ${backendProduct.sku}`,
-      basePrice: basePrice,
+      basePrice: basePrice, // minimum non-3ml price
       notes: notes,
       intensity: backendProduct.intensity || (isSpray ? 'medium' : 'strong'),
       bestFor: backendProduct.bestFor || ['all'],
       isNew: isNew,
       isBestseller: backendProduct.isBestseller || false,
       images: backendProduct.images || [],
-      backendData: backendProduct,
+      backendData: backendProduct, // keep full data for modal
     };
   };
 
+  // Quick add: find the smallest non-3ml size
   const quickAddToCart = (product, event) => {
     event?.stopPropagation();
-    const defaultSize = sizeConfig[product.category]?.[0];
-    if (defaultSize) {
-      addToCart(product, defaultSize);
-    }
+    const sizes = product.backendData?.sizes || [];
+    const validSizes = sizes.filter(s => s.sizeMl !== 3);
+    if (validSizes.length === 0) return;
+    // Sort by sizeMl ascending and pick the smallest
+    const sorted = [...validSizes].sort((a, b) => a.sizeMl - b.sizeMl);
+    const defaultSize = sorted[0];
+    addToCart(product, defaultSize);
   };
 
   const filteredProducts = products.filter(product => {
@@ -149,18 +118,13 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1
-      }
+      transition: { staggerChildren: 0.1 }
     }
   };
 
   const itemVariants = {
     hidden: { y: 20, opacity: 0 },
-    visible: {
-      y: 0,
-      opacity: 1
-    }
+    visible: { y: 0, opacity: 1 }
   };
 
   if (loading) {
@@ -192,7 +156,6 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
 
   return (
     <section id="shop" className="py-20 px-4 lg:px-16 bg-black relative overflow-hidden">
-      {/* Background */}
       <div className="absolute inset-0 bg-gradient-radial from-gold/5 via-transparent to-transparent animate-pulse" />
       
       <div className="max-w-7xl mx-auto relative z-10">
@@ -269,8 +232,6 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
           >
             <AnimatePresence>
               {filteredProducts.map((product) => {
-                const defaultSize = sizeConfig[product.category]?.[0];
-                const displayPrice = defaultSize ? Math.round(product.basePrice * defaultSize.multiplier) : product.basePrice;
                 const isInWishlist = wishlist.includes(product.id);
                 
                 return (
@@ -353,7 +314,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
                         {product.name}
                       </h3>
                       <p className="text-gold text-2xl font-light mb-4 tracking-wide">
-                        From ৳{displayPrice}
+                        From ৳{product.basePrice || 0}
                       </p>
                       <button
                         onClick={(e) => quickAddToCart(product, e)}
