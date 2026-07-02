@@ -2,20 +2,84 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../contexts/CartContext';
 import { X, Plus, Minus, ShoppingCart, Star, Award } from 'lucide-react';
+import API from '../api/axios'; // import your API client
 
 const productEmojis = {
   perfume: '🌸',
   oil: '💧'
 };
 
-const ProductModal = React.memo(({ product, onClose }) => {
+const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
+  const [product, setProduct] = useState(initialProduct); // will be updated with fresh data
+  const [loading, setLoading] = useState(true);
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const { addToCart } = useCart();
 
-  // Memoized: extract and sort sizes (exclude 3ml)
+  // Fetch fresh product data from backend when modal opens
+  useEffect(() => {
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        const response = await API.get(`/products/${initialProduct.id}`);
+        // Transform the backend product to match the frontend format
+        const freshProduct = transformProduct(response.data);
+        setProduct(freshProduct);
+      } catch (error) {
+        console.error('Failed to fetch product details:', error);
+        // Fallback to initial product data if fetch fails
+        setProduct(initialProduct);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (initialProduct?.id) {
+      fetchProduct();
+    }
+  }, [initialProduct.id]);
+
+  // Transform backend product to frontend format (exclude 3ml, compute basePrice, etc.)
+  const transformProduct = (backendProduct) => {
+    const isSpray = backendProduct.type === 'spray';
+    const category = isSpray ? 'perfume' : 'oil';
+
+    const validSizes = (backendProduct.sizes || []).filter((s) => s.sizeMl !== 3);
+    let basePrice = 0;
+    if (validSizes.length > 0) {
+      const prices = validSizes.map((s) => s.sellingPrice || 0);
+      basePrice = Math.min(...prices);
+    }
+
+    const notes =
+      backendProduct.notes?.length > 0
+        ? backendProduct.notes
+        : backendProduct.blendComponents?.map((c) => c.material?.name || '') || ['Premium'];
+
+    const isNew =
+      backendProduct.createdAt &&
+      new Date() - new Date(backendProduct.createdAt) < 30 * 24 * 60 * 60 * 1000;
+
+    return {
+      id: backendProduct._id,
+      name: backendProduct.name,
+      category,
+      description: backendProduct.description || `${backendProduct.name} – ${backendProduct.sku}`,
+      basePrice,
+      notes,
+      intensity: backendProduct.intensity || (isSpray ? 'medium' : 'strong'),
+      bestFor: backendProduct.bestFor || ['all'],
+      isNew,
+      isBestseller: backendProduct.isBestseller || false,
+      images: backendProduct.images || [],
+      backendData: backendProduct, // keep full raw data for sizes
+      sizes: validSizes,
+    };
+  };
+
+  // Memoized: extract and sort sizes (exclude 3ml) from the fresh product
   const sortedSizes = useMemo(() => {
     const sizes = product.backendData?.sizes || [];
     return [...sizes]
@@ -23,7 +87,7 @@ const ProductModal = React.memo(({ product, onClose }) => {
       .sort((a, b) => a.sizeMl - b.sizeMl);
   }, [product.backendData?.sizes]);
 
-  // Memoized: format size label (stable function reference)
+  // Memoized: format size label
   const formatSizeLabel = useCallback((size) => {
     const bottleType = size.bottle?.type || '';
     return `${size.sizeMl}ml ${bottleType}`.trim();
@@ -46,7 +110,7 @@ const ProductModal = React.memo(({ product, onClose }) => {
     ).join(' • ') || 'Premium Blend';
   }, [product.notes]);
 
-  // Set default selected size
+  // Set default selected size when sortedSizes changes
   useEffect(() => {
     if (sortedSizes.length > 0 && !selectedSize) {
       setSelectedSize(sortedSizes[0]);
@@ -77,6 +141,18 @@ const ProductModal = React.memo(({ product, onClose }) => {
   const changeQuantity = useCallback((delta) => {
     setQuantity(prev => Math.max(1, Math.min(10, prev + delta)));
   }, []);
+
+  // Show loading spinner while fetching fresh data
+  if (loading) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-400">Loading product details...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AnimatePresence>

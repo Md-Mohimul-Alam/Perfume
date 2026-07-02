@@ -1,16 +1,35 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useCart } from '../contexts/CartContext';
 
 const Header = ({ toggleCart }) => {
   const { getCartCount } = useCart();
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      // Change background when scrolled past 20% of viewport height
+      const threshold = window.innerHeight * 0.2;
+      setIsScrolled(window.scrollY > threshold);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    // Initial check
+    handleScroll();
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <motion.header
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6 }}
-      className="fixed top-0 left-0 right-0 z-50 bg-black/95 backdrop-blur-lg border-b border-gold/15"
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        isScrolled
+          ? 'bg-black/95 backdrop-blur-sm border-b border-gold/20'
+          : 'bg-transparent backdrop-blur-lg border-b border-gold/15'
+      }`}
     >
       <div className="max-w-7xl mx-auto px-4 lg:px-16 py-5 flex justify-between items-center">
         <motion.a

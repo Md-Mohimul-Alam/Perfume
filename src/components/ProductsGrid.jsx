@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, ShoppingCart, Eye } from 'lucide-react';
+import { Heart, ShoppingCart, Eye, ChevronDown } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import API from '../api/axios';
 
@@ -107,7 +107,28 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentFilter, setCurrentFilter] = useState('all');
+  const [visibleCount, setVisibleCount] = useState(20); // will be set based on screen width
   const { addToCart } = useCart();
+
+  // Determine initial visible count based on screen width
+  const getInitialCount = useCallback(() => {
+    return window.innerWidth < 768 ? 10 : 20;
+  }, []);
+
+  // Set initial visible count on mount and on resize (optional)
+  useEffect(() => {
+    const updateCount = () => {
+      setVisibleCount(getInitialCount());
+    };
+    updateCount();
+    window.addEventListener('resize', updateCount);
+    return () => window.removeEventListener('resize', updateCount);
+  }, [getInitialCount]);
+
+  // Reset visible count when filter changes
+  useEffect(() => {
+    setVisibleCount(getInitialCount());
+  }, [currentFilter, getInitialCount]);
 
   // Fetch products from backend
   const fetchProducts = useCallback(async () => {
@@ -195,7 +216,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     [addToCart]
   );
 
-  // Filter products – memoized to avoid recalculating on every render
+  // Filter products – memoized
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       switch (currentFilter) {
@@ -216,6 +237,19 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
       }
     });
   }, [products, currentFilter]);
+
+  // Displayed products – slice based on visibleCount
+  const displayedProducts = useMemo(() => {
+    return filteredProducts.slice(0, visibleCount);
+  }, [filteredProducts, visibleCount]);
+
+  // Load more handler – shows all products
+  const loadMore = useCallback(() => {
+    setVisibleCount(filteredProducts.length);
+  }, [filteredProducts.length]);
+
+  // Check if more products are available
+  const hasMore = visibleCount < filteredProducts.length;
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -316,7 +350,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
         </div>
 
         {/* Products Grid */}
-        {filteredProducts.length === 0 ? (
+        {displayedProducts.length === 0 ? (
           <div className="text-center text-gray-400 py-16">
             <p className="text-6xl mb-4">🛒</p>
             <p>No products found matching your criteria.</p>
@@ -328,24 +362,39 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
             </button>
           </div>
         ) : (
-          <motion.div
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-          >
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                wishlist={wishlist}
-                toggleWishlist={toggleWishlist}
-                openProductModal={openProductModal}
-                quickAddToCart={quickAddToCart}
-              />
-            ))}
-          </motion.div>
+          <>
+            <motion.div
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+            >
+              {displayedProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  wishlist={wishlist}
+                  toggleWishlist={toggleWishlist}
+                  openProductModal={openProductModal}
+                  quickAddToCart={quickAddToCart}
+                />
+              ))}
+            </motion.div>
+
+            {/* Load More Button */}
+            {hasMore && (
+              <div className="flex justify-center mt-12">
+                <button
+                  onClick={loadMore}
+                  className="flex items-center gap-2 px-8 py-4 border border-gold/50 text-gold hover:bg-gold hover:text-black transition-all duration-300 rounded-lg font-medium tracking-wide"
+                >
+                  <span>Load More</span>
+                  <ChevronDown size={20} />
+                </button>
+              </div>
+            )}
+          </>
         )}
       </div>
     </section>

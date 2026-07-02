@@ -8,9 +8,29 @@ const Hero = () => {
   };
 
   return (
-    <section id="home" className="relative min-h-screen flex items-center justify-center bg-black overflow-hidden px-4 lg:px-16">
-      {/* Background Particles */}
-      <div className="absolute inset-0 opacity-30">
+    <section
+      id="home"
+      className="relative min-h-screen flex items-center justify-center bg-black overflow-hidden px-4 lg:px-16"
+    >
+      {/* ---- BACKGROUND VIDEO ---- */}
+      <div className="absolute inset-0 w-full h-full z-0">
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="w-full h-full object-cover"
+          poster="/images/hero-poster.jpg" // optional fallback image
+        >
+          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+          {/* Fallback: if video fails, show nothing (background stays black) */}
+        </video>
+        {/* Dark overlay to improve text contrast */}
+        <div className="absolute inset-0 bg-black/60 z-1" />
+      </div>
+
+      {/* ---- PARTICLES (still above video) ---- */}
+      <div className="absolute inset-0 opacity-30 z-2 pointer-events-none">
         {[...Array(50)].map((_, i) => (
           <motion.div
             key={i}
@@ -33,6 +53,7 @@ const Hero = () => {
         ))}
       </div>
 
+      {/* ---- CONTENT (on top) ---- */}
       <div className="relative z-10 text-center text-white py-32">
         <motion.h1
           className="hero-title font-display font-light tracking-[0.5em] uppercase mb-6"

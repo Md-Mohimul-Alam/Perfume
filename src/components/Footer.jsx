@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Facebook, Instagram, Twitter, Linkedin, CreditCard } from 'lucide-react';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -29,10 +30,10 @@ const Footer = () => {
   };
 
   const socialLinks = [
-    { icon: '📷', href: 'https://instagram.com/luxe_bd', label: 'Instagram' },
-    { icon: '📘', href: 'https://facebook.com/luxe.perfumers', label: 'Facebook' },
-    { icon: '🐦', href: 'https://twitter.com/luxe_perfumes', label: 'Twitter' },
-    { icon: '💼', href: 'https://linkedin.com/company/luxe', label: 'LinkedIn' }
+    { icon: Instagram, href: 'https://instagram.com/luxe_bd', label: 'Instagram' },
+    { icon: Facebook, href: 'https://facebook.com/luxe.perfumers', label: 'Facebook' },
+    { icon: Twitter, href: 'https://twitter.com/luxe_perfumes', label: 'Twitter' },
+    { icon: Linkedin, href: 'https://linkedin.com/company/luxe', label: 'LinkedIn' }
   ];
 
   const quickLinks = [
@@ -210,29 +211,32 @@ const Footer = () => {
                     href={social.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-gold hover:text-white transition-colors duration-300 text-lg p-2 hover:bg-gold/10 rounded-lg"
+                    className="text-gold hover:text-white transition-colors duration-300 p-2 hover:bg-gold/10 rounded-lg"
                     aria-label={social.label}
                     initial={{ opacity: 0, scale: 0 }}
                     whileInView={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.4, delay: 0.7 + index * 0.1 }}
                     whileHover={{ scale: 1.2, rotate: 5 }}
                   >
-                    {social.icon}
+                    <social.icon size={20} />
                   </motion.a>
                 ))}
               </motion.div>
 
-              {/* Payment Methods */}
+              {/* Payment Methods – Only bkash & Nagad */}
               <motion.div 
-                className="flex items-center gap-2 text-gray-500 text-sm"
+                className="flex items-center gap-3 text-gray-400 text-sm"
                 initial={{ opacity: 0 }}
                 whileInView={{ opacity: 1 }}
                 transition={{ duration: 0.6, delay: 0.7 }}
               >
-                <span className="mr-2">Secure payments:</span>
-                <span>💳</span>
-                <span>📱</span>
-                <span>🌐</span>
+                <span className="text-xs tracking-wider uppercase font-light">Pay with</span>
+                <span className="px-3 py-1.5 bg-gold/10 border border-gold/30 rounded-lg text-gold font-medium text-xs tracking-wider">
+                  bKash
+                </span>
+                <span className="px-3 py-1.5 bg-gold/10 border border-gold/30 rounded-lg text-gold font-medium text-xs tracking-wider">
+                  Nagad
+                </span>
               </motion.div>
             </div>
           </div>

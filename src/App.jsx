@@ -14,9 +14,9 @@ import Contact from './components/Contact';
 import Footer from './components/Footer';
 import ProductModal from './components/ProductModal';
 import CartSidebar from './components/CartSidebar';
-import EnhancedBackground from './components/EnhancedBackground.jsx'; // Add this import
+import EnhancedBackground from './components/EnhancedBackground';
 import { CartProvider } from './contexts/CartContext';
-import { products } from './utils/constants';
+// ❌ Remove: import { products } from './utils/constants';
 import './styles/globals.css';
 
 function App() {
@@ -57,7 +57,6 @@ function App() {
   return (
     <CartProvider>
       <div className="App">
-        {/* Enhanced Background - Add this line */}
         <EnhancedBackground />
         
         <Header toggleCart={toggleCart} />
@@ -68,12 +67,14 @@ function App() {
         <ScentNotes />
         <PersonalizedSection />
         <SearchSection />
+        
+        {/* ProductsGrid now fetches data itself */}
         <ProductsGrid 
-          products={products}
           wishlist={wishlist}
           toggleWishlist={toggleWishlist}
           openProductModal={openProductModal}
         />
+        
         <Testimonials />
         <About />
         <Contact />
