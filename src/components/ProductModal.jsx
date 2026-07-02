@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../contexts/CartContext';
 import { X, Plus, Minus, ShoppingCart, Star, Award } from 'lucide-react';
@@ -8,25 +8,49 @@ const productEmojis = {
   oil: '💧'
 };
 
-const ProductModal = ({ product, onClose }) => {
+const ProductModal = React.memo(({ product, onClose }) => {
   const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const { addToCart } = useCart();
 
-  // Extract actual sizes from backend data, then filter out 3ml
-  const sizes = product.backendData?.sizes || [];
-  const filteredSizes = sizes.filter(size => size.sizeMl !== 3); // <-- REMOVE 3ml
-  // Sort by sizeMl ascending
-  const sortedSizes = [...filteredSizes].sort((a, b) => a.sizeMl - b.sizeMl);
+  // Memoized: extract and sort sizes (exclude 3ml)
+  const sortedSizes = useMemo(() => {
+    const sizes = product.backendData?.sizes || [];
+    return [...sizes]
+      .filter(size => size.sizeMl !== 3)
+      .sort((a, b) => a.sizeMl - b.sizeMl);
+  }, [product.backendData?.sizes]);
 
-  // Set default selected size to the smallest one (now the smallest non-3ml)
+  // Memoized: format size label (stable function reference)
+  const formatSizeLabel = useCallback((size) => {
+    const bottleType = size.bottle?.type || '';
+    return `${size.sizeMl}ml ${bottleType}`.trim();
+  }, []);
+
+  // Memoized: intensity icon
+  const getIntensityIcon = useCallback((intensity) => {
+    switch (intensity) {
+      case 'light': return '🕯️';
+      case 'medium': return '💫';
+      case 'strong': return '🔥';
+      default: return '✨';
+    }
+  }, []);
+
+  // Memoized: scent notes
+  const getScentNotes = useCallback(() => {
+    return product.notes?.map(note =>
+      note.charAt(0).toUpperCase() + note.slice(1)
+    ).join(' • ') || 'Premium Blend';
+  }, [product.notes]);
+
+  // Set default selected size
   useEffect(() => {
     if (sortedSizes.length > 0 && !selectedSize) {
       setSelectedSize(sortedSizes[0]);
     }
-    // If the selected size was removed by filtering, reset it
     if (selectedSize && !sortedSizes.some(s => s._id === selectedSize._id)) {
       setSelectedSize(sortedSizes[0] || null);
     }
@@ -40,7 +64,7 @@ const ProductModal = ({ product, onClose }) => {
     };
   }, []);
 
-  const addToCartFromModal = async () => {
+  const addToCartFromModal = useCallback(async () => {
     if (selectedSize) {
       setIsAddingToCart(true);
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -48,31 +72,11 @@ const ProductModal = ({ product, onClose }) => {
       setIsAddingToCart(false);
       onClose();
     }
-  };
+  }, [selectedSize, addToCart, product, quantity, onClose]);
 
-  const changeQuantity = (delta) => {
+  const changeQuantity = useCallback((delta) => {
     setQuantity(prev => Math.max(1, Math.min(10, prev + delta)));
-  };
-
-  const getIntensityIcon = (intensity) => {
-    switch (intensity) {
-      case 'light': return '🕯️';
-      case 'medium': return '💫';
-      case 'strong': return '🔥';
-      default: return '✨';
-    }
-  };
-
-  const getScentNotes = () => {
-    return product.notes?.map(note =>
-      note.charAt(0).toUpperCase() + note.slice(1)
-    ).join(' • ') || 'Premium Blend';
-  };
-
-  const formatSizeLabel = (size) => {
-    const bottleType = size.bottle?.type || '';
-    return `${size.sizeMl}ml ${bottleType}`.trim();
-  };
+  }, []);
 
   return (
     <AnimatePresence>
@@ -368,6 +372,8 @@ const ProductModal = ({ product, onClose }) => {
       </motion.div>
     </AnimatePresence>
   );
-};
+});
+
+ProductModal.displayName = 'ProductModal';
 
 export default ProductModal;
