@@ -353,7 +353,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
                         {product.name}
                       </h3>
                       <p className="text-gold text-2xl font-light mb-4 tracking-wide">
-                        From ${displayPrice}
+                        From ৳{displayPrice}
                       </p>
                       <button
                         onClick={(e) => quickAddToCart(product, e)}
