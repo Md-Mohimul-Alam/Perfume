@@ -15,15 +15,20 @@ const ProductModal = ({ product, onClose }) => {
   const [activeTab, setActiveTab] = useState('details');
   const { addToCart } = useCart();
 
-  // Extract actual sizes from backend data
+  // Extract actual sizes from backend data, then filter out 3ml
   const sizes = product.backendData?.sizes || [];
-  // Sort sizes by sizeMl for consistent display
-  const sortedSizes = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
+  const filteredSizes = sizes.filter(size => size.sizeMl !== 3); // <-- REMOVE 3ml
+  // Sort by sizeMl ascending
+  const sortedSizes = [...filteredSizes].sort((a, b) => a.sizeMl - b.sizeMl);
 
-  // Set default selected size to the smallest one
+  // Set default selected size to the smallest one (now the smallest non-3ml)
   useEffect(() => {
     if (sortedSizes.length > 0 && !selectedSize) {
       setSelectedSize(sortedSizes[0]);
+    }
+    // If the selected size was removed by filtering, reset it
+    if (selectedSize && !sortedSizes.some(s => s._id === selectedSize._id)) {
+      setSelectedSize(sortedSizes[0] || null);
     }
   }, [sortedSizes, selectedSize]);
 
@@ -39,7 +44,6 @@ const ProductModal = ({ product, onClose }) => {
     if (selectedSize) {
       setIsAddingToCart(true);
       await new Promise(resolve => setTimeout(resolve, 800));
-      // Pass the actual size variant to the cart
       addToCart(product, selectedSize, quantity);
       setIsAddingToCart(false);
       onClose();
@@ -65,7 +69,6 @@ const ProductModal = ({ product, onClose }) => {
     ).join(' • ') || 'Premium Blend';
   };
 
-  // Helper to format size display
   const formatSizeLabel = (size) => {
     const bottleType = size.bottle?.type || '';
     return `${size.sizeMl}ml ${bottleType}`.trim();
@@ -88,8 +91,6 @@ const ProductModal = ({ product, onClose }) => {
           onClick={onClose}
         />
         
-        {/* Background particles (optional) - keep as is */}
-
         {/* Main Modal */}
         <motion.div
           className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden"
@@ -132,7 +133,7 @@ const ProductModal = ({ product, onClose }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
-              {/* Left Column - unchanged */}
+              {/* Left Column */}
               <div className="space-y-6">
                 <motion.div 
                   className="relative h-64 bg-gradient-to-br from-gold/10 to-purple-900/10 rounded-xl border border-gold/20 flex items-center justify-center"
@@ -168,7 +169,7 @@ const ProductModal = ({ product, onClose }) => {
                   )}
                 </motion.div>
 
-                {/* Details Tabs - unchanged except data */}
+                {/* Details Tabs */}
                 <div className="bg-black/50 rounded-xl border border-gold/10 p-4">
                   <div className="flex space-x-4 mb-4">
                     {['details', 'notes', 'usage'].map((tab) => (
@@ -220,7 +221,7 @@ const ProductModal = ({ product, onClose }) => {
                 </div>
               </div>
 
-              {/* Right Column - updated to use real sizes */}
+              {/* Right Column */}
               <div className="space-y-6">
                 {/* Size Selection */}
                 <div>
