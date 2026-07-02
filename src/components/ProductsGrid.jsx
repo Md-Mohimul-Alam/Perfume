@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ShoppingCart, Eye } from 'lucide-react';
+import { Heart, ShoppingCart, Eye, RefreshCw } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import API from '../api/axios';
 
@@ -17,37 +17,41 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
   const { addToCart } = useCart();
 
   // Fetch products from backend
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const response = await API.get("/products?limit=10000");
+      const response = await API.get("/products?limit=10000");
 
-        let rawProducts = [];
-        if (Array.isArray(response.data)) {
-          rawProducts = response.data;
-        } else if (Array.isArray(response.data.products)) {
-          rawProducts = response.data.products;
-        } else if (Array.isArray(response.data.data)) {
-          rawProducts = response.data.data;
-        } else if (Array.isArray(response.data.items)) {
-          rawProducts = response.data.items;
-        }
-
-        const transformedProducts = rawProducts
-          .filter(product => product && product._id)
-          .map(transformProduct);
-
-        setProducts(transformedProducts);
-      } catch (err) {
-        setError(err.response?.data?.message || "Failed to load products.");
-      } finally {
-        setLoading(false);
+      let rawProducts = [];
+      if (Array.isArray(response.data)) {
+        rawProducts = response.data;
+      } else if (Array.isArray(response.data.products)) {
+        rawProducts = response.data.products;
+      } else if (Array.isArray(response.data.data)) {
+        rawProducts = response.data.data;
+      } else if (Array.isArray(response.data.items)) {
+        rawProducts = response.data.items;
       }
-    };
 
+      console.log('📦 Raw products count:', rawProducts.length);
+      const transformedProducts = rawProducts
+        .filter(product => product && product._id)
+        .map(transformProduct)
+        .filter(p => p.basePrice > 0 || p.sizes?.length > 0); // remove products with no valid sizes
+
+      console.log('✅ Transformed products count:', transformedProducts.length);
+      setProducts(transformedProducts);
+    } catch (err) {
+      console.error('❌ Fetch error:', err);
+      setError(err.response?.data?.message || "Failed to load products.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     fetchProducts();
   }, []);
 
@@ -76,43 +80,52 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
       name: backendProduct.name,
       category: category,
       description: backendProduct.description || `${backendProduct.name} – ${backendProduct.sku}`,
-      basePrice: basePrice, // minimum non-3ml price
+      basePrice: basePrice,
       notes: notes,
       intensity: backendProduct.intensity || (isSpray ? 'medium' : 'strong'),
       bestFor: backendProduct.bestFor || ['all'],
       isNew: isNew,
       isBestseller: backendProduct.isBestseller || false,
       images: backendProduct.images || [],
-      backendData: backendProduct, // keep full data for modal
+      backendData: backendProduct,
+      sizes: validSizes, // store for quick add
     };
   };
 
   // Quick add: find the smallest non-3ml size
   const quickAddToCart = (product, event) => {
     event?.stopPropagation();
-    const sizes = product.backendData?.sizes || [];
-    const validSizes = sizes.filter(s => s.sizeMl !== 3);
-    if (validSizes.length === 0) return;
-    // Sort by sizeMl ascending and pick the smallest
-    const sorted = [...validSizes].sort((a, b) => a.sizeMl - b.sizeMl);
+    const sizes = product.sizes || [];
+    if (sizes.length === 0) return;
+    const sorted = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
     const defaultSize = sorted[0];
     addToCart(product, defaultSize);
   };
 
+  // Filter products – with debug log
   const filteredProducts = products.filter(product => {
+    let match = true;
     switch (currentFilter) {
       case 'perfume':
-        return product.category === 'perfume';
+        match = product.category === 'perfume';
+        break;
       case 'oil':
-        return product.category === 'oil';
+        match = product.category === 'oil';
+        break;
       case 'new':
-        return product.isNew;
+        match = product.isNew;
+        break;
       case 'bestsellers':
-        return product.isBestseller;
+        match = product.isBestseller;
+        break;
       default:
-        return true;
+        match = true;
     }
+    return match;
   });
+
+  // Debug: log filtered count
+  console.log(`🔍 Filter: ${currentFilter}, Products: ${filteredProducts.length}`);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -144,7 +157,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
         <div className="text-center">
           <p className="text-red-500 text-lg mb-4">{error}</p>
           <button 
-            onClick={() => window.location.reload()}
+            onClick={fetchProducts}
             className="px-6 py-3 border border-gold text-white hover:bg-gold hover:text-black transition-colors"
           >
             Retry
@@ -178,48 +191,39 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
           Discover our premium selection of fragrances and oils
         </motion.p>
 
-        {/* Filter Tabs */}
-        <div className="filter-tabs text-white flex justify-center gap-4 mb-16 flex-wrap">
-          {[
-            { key: 'all', label: 'All Products' },
-            { key: 'perfume', label: 'Perfumes' },
-            { key: 'oil', label: 'Essential Oils' },
-            { key: 'new', label: 'New Arrivals' },
-            { key: 'bestsellers', label: 'Bestsellers' }
-          ].map((filter) => (
-            <motion.button
-              key={filter.key}
-              className={`filter-btn px-7 py-3 border border-gold/30 text-white text-sm tracking-wider uppercase font-light relative overflow-hidden group ${
-                currentFilter === filter.key ? 'text-black' : ''
-              }`}
-              onClick={() => setCurrentFilter(filter.key)}
-              whileHover="hover"
-              whileTap={{ scale: 0.95 }}
-            >
-              {/* Text – stays on top */}
-              <motion.span
-                variants={{
-                  hover: { x: currentFilter === filter.key ? 0 : -100 }
-                }}
-                transition={{ duration: 0.4 }}
-                className="relative z-10"
-              >
-                {filter.label}
-              </motion.span>
+        {/* Filter Tabs + Refresh */}
+        <div className="flex justify-between items-center mb-16 flex-wrap gap-4">
+          <div className="filter-tabs text-white flex justify-center gap-4 flex-wrap">
+            {[
+              { key: 'all', label: 'All Products' },
+              { key: 'perfume', label: 'Perfumes' },
+              { key: 'oil', label: 'Essential Oils' },
+              { key: 'new', label: 'New Arrivals' },
+              { key: 'bestsellers', label: 'Bestsellers' }
+            ].map((filter) => {
+              const isActive = currentFilter === filter.key;
+              return (
+                <motion.button
+                  key={filter.key}
+                  className={`px-7 py-3 border border-gold/30 text-sm tracking-wider uppercase font-light relative overflow-hidden transition-all duration-300 ${
+                    isActive ? 'bg-gold text-black' : 'text-white hover:bg-gold/10'
+                  }`}
+                  onClick={() => setCurrentFilter(filter.key)}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <span className="relative z-10">{filter.label}</span>
+                </motion.button>
+              );
+            })}
+          </div>
 
-              {/* Gold sliding background – behind text, hidden initially */}
-              <motion.span
-                variants={{
-                  hover: { x: 0 },
-                  initial: { x: '-100%' } // ← starts off-screen left
-                }}
-                initial="initial"
-                animate="initial"
-                transition={{ duration: 0.4 }}
-                className="absolute inset-0 bg-gold z-0" // ← lower z-index
-              />
-            </motion.button>
-          ))}
+          {/* Refresh button */}
+          <button
+            onClick={fetchProducts}
+            className="text-gold border border-gold/30 px-4 py-2 rounded hover:bg-gold hover:text-black transition-colors flex items-center gap-2"
+          >
+            <RefreshCw size={16} /> Refresh
+          </button>
         </div>
 
         {/* Products Grid */}
@@ -227,6 +231,12 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
           <div className="text-center text-gray-400 py-16">
             <p className="text-6xl mb-4">🛒</p>
             <p>No products found matching your criteria.</p>
+            <button
+              onClick={() => setCurrentFilter('all')}
+              className="mt-4 text-gold underline"
+            >
+              Show all products
+            </button>
           </div>
         ) : (
           <motion.div
