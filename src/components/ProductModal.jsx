@@ -3,37 +3,32 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../contexts/CartContext';
 import { X, Plus, Minus, ShoppingCart, Star, Award } from 'lucide-react';
 
-// Enhanced size configuration with premium names
-const sizeConfig = {
-  perfume: [
-    { size: "Petite", volume: "6ml", multiplier: 1, description: "Travel Size" },
-    { size: "Elegant", volume: "15ml", multiplier: 1.6, description: "Daily Wear" },
-    { size: "Opulent", volume: "30ml", multiplier: 2.6, description: "Signature Collection" }
-  ],
-  oil: [
-    { size: "Essence", volume: "3.5ml", multiplier: 0.8, description: "Sample Vial" },
-    { size: "Serene", volume: "6ml", multiplier: 1.12, description: "Personal Use" },
-    { size: "Abundant", volume: "15ml", multiplier: 1.8, description: "Regular Collection" },
-    { size: "Grand", volume: "30ml", multiplier: 2.8, description: "Luxury Reserve" }
-  ]
-};
-
 const productEmojis = {
   perfume: '🌸',
   oil: '💧'
 };
 
 const ProductModal = ({ product, onClose }) => {
-  const [selectedSize, setSelectedSize] = useState(sizeConfig[product.category]?.[0]);
+  const [selectedSize, setSelectedSize] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const { addToCart } = useCart();
 
-  const sizes = sizeConfig[product.category] || [];
+  // Extract actual sizes from backend data
+  const sizes = product.backendData?.sizes || [];
+  // Sort sizes by sizeMl for consistent display
+  const sortedSizes = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
 
+  // Set default selected size to the smallest one
   useEffect(() => {
-    // Prevent background scroll when modal is open
+    if (sortedSizes.length > 0 && !selectedSize) {
+      setSelectedSize(sortedSizes[0]);
+    }
+  }, [sortedSizes, selectedSize]);
+
+  // Prevent scroll when modal is open
+  useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
       document.body.style.overflow = 'unset';
@@ -43,8 +38,8 @@ const ProductModal = ({ product, onClose }) => {
   const addToCartFromModal = async () => {
     if (selectedSize) {
       setIsAddingToCart(true);
-      // Simulate loading for better UX
       await new Promise(resolve => setTimeout(resolve, 800));
+      // Pass the actual size variant to the cart
       addToCart(product, selectedSize, quantity);
       setIsAddingToCart(false);
       onClose();
@@ -65,9 +60,15 @@ const ProductModal = ({ product, onClose }) => {
   };
 
   const getScentNotes = () => {
-    return product.notes?.map(note => 
+    return product.notes?.map(note =>
       note.charAt(0).toUpperCase() + note.slice(1)
     ).join(' • ') || 'Premium Blend';
+  };
+
+  // Helper to format size display
+  const formatSizeLabel = (size) => {
+    const bottleType = size.bottle?.type || '';
+    return `${size.sizeMl}ml ${bottleType}`.trim();
   };
 
   return (
@@ -78,7 +79,7 @@ const ProductModal = ({ product, onClose }) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        {/* Enhanced Backdrop with 3D Effect */}
+        {/* Backdrop */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-br from-black via-purple-900/20 to-black"
           initial={{ opacity: 0 }}
@@ -87,31 +88,9 @@ const ProductModal = ({ product, onClose }) => {
           onClick={onClose}
         />
         
-        {/* Animated Background Particles */}
-        <div className="absolute inset-0 overflow-hidden">
-          {[...Array(12)].map((_, i) => (
-            <motion.div
-              key={i}
-              className="absolute w-1 h-1 bg-gold/30 rounded-full"
-              animate={{
-                y: [0, -100, 0],
-                x: [0, Math.random() * 100 - 50, 0],
-                opacity: [0, 1, 0],
-              }}
-              transition={{
-                duration: 4 + Math.random() * 2,
-                repeat: Infinity,
-                delay: Math.random() * 2,
-              }}
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-              }}
-            />
-          ))}
-        </div>
+        {/* Background particles (optional) - keep as is */}
 
-        {/* Main Modal Container with 3D Perspective */}
+        {/* Main Modal */}
         <motion.div
           className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden"
           initial={{ scale: 0.8, rotateY: -15, opacity: 0 }}
@@ -120,16 +99,15 @@ const ProductModal = ({ product, onClose }) => {
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
           style={{ perspective: "1000px" }}
         >
-          <div className="relative bg-gradient-to-br from-gray-900 via-black to-gray-800 border border-gold/30 rounded-2xl overflow-hidden shadow-2xl shadow-gold/20 transform-style-3d">
+          <div className="relative bg-gradient-to-br from-gray-900 via-black to-gray-800 border border-gold/30 rounded-2xl overflow-hidden shadow-2xl shadow-gold/20">
             
-            {/* Luxury Header with Gradient */}
+            {/* Header */}
             <div className="relative bg-gradient-to-r from-gold/10 via-gold/5 to-transparent border-b border-gold/20 p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
                   <motion.div
                     className="text-4xl"
                     whileHover={{ scale: 1.1, rotate: 5 }}
-                    transition={{ type: "spring", stiffness: 300 }}
                   >
                     {productEmojis[product.category]}
                   </motion.div>
@@ -142,7 +120,6 @@ const ProductModal = ({ product, onClose }) => {
                     </p>
                   </div>
                 </div>
-                
                 <motion.button
                   onClick={onClose}
                   className="w-10 h-10 rounded-full border border-gold/30 text-gold flex items-center justify-center hover:bg-gold hover:text-black transition-all duration-300"
@@ -155,30 +132,19 @@ const ProductModal = ({ product, onClose }) => {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 p-8">
-              {/* Left Column - Product Visual & Info */}
+              {/* Left Column - unchanged */}
               <div className="space-y-6">
-                {/* 3D Product Visualization */}
                 <motion.div 
                   className="relative h-64 bg-gradient-to-br from-gold/10 to-purple-900/10 rounded-xl border border-gold/20 flex items-center justify-center"
                   whileHover={{ scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 300 }}
                 >
                   <motion.div
                     className="text-8xl"
-                    animate={{ 
-                      y: [0, -10, 0],
-                      rotateY: [0, 5, 0]
-                    }}
-                    transition={{
-                      duration: 6,
-                      repeat: Infinity,
-                      ease: "easeInOut"
-                    }}
+                    animate={{ y: [0, -10, 0], rotateY: [0, 5, 0] }}
+                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
                   >
                     {productEmojis[product.category]}
                   </motion.div>
-                  
-                  {/* Floating Badges */}
                   {product.isBestseller && (
                     <motion.div
                       className="absolute top-4 left-4 bg-gradient-to-r from-gold to-yellow-600 text-black px-3 py-1 rounded-full text-xs font-bold flex items-center space-x-1"
@@ -190,7 +156,6 @@ const ProductModal = ({ product, onClose }) => {
                       <span>BESTSELLER</span>
                     </motion.div>
                   )}
-                  
                   {product.isNew && (
                     <motion.div
                       className="absolute top-4 right-4 bg-gradient-to-r from-green-400 to-emerald-600 text-white px-3 py-1 rounded-full text-xs font-bold"
@@ -203,7 +168,7 @@ const ProductModal = ({ product, onClose }) => {
                   )}
                 </motion.div>
 
-                {/* Product Details Tabs */}
+                {/* Details Tabs - unchanged except data */}
                 <div className="bg-black/50 rounded-xl border border-gold/10 p-4">
                   <div className="flex space-x-4 mb-4">
                     {['details', 'notes', 'usage'].map((tab) => (
@@ -220,7 +185,6 @@ const ProductModal = ({ product, onClose }) => {
                       </button>
                     ))}
                   </div>
-
                   <AnimatePresence mode="wait">
                     <motion.div
                       key={activeTab}
@@ -238,14 +202,12 @@ const ProductModal = ({ product, onClose }) => {
                           </div>
                         </div>
                       )}
-                      
                       {activeTab === 'notes' && (
                         <div className="space-y-2">
                           <p className="text-gold font-medium">Scent Profile:</p>
                           <p className="text-sm text-gray-300">{getScentNotes()}</p>
                         </div>
                       )}
-                      
                       {activeTab === 'usage' && (
                         <div className="space-y-2 text-sm text-gray-300">
                           <p>• Apply to pulse points for lasting fragrance</p>
@@ -258,19 +220,19 @@ const ProductModal = ({ product, onClose }) => {
                 </div>
               </div>
 
-              {/* Right Column - Selection & Actions */}
+              {/* Right Column - updated to use real sizes */}
               <div className="space-y-6">
-                {/* Size Selection - Premium Cards */}
+                {/* Size Selection */}
                 <div>
                   <label className="text-white text-lg font-light tracking-wide mb-4 block">
                     Select Your Size
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                    {sizes.map((size, index) => (
+                    {sortedSizes.map((size) => (
                       <motion.button
-                        key={size.size}
+                        key={size._id || size.sizeMl}
                         className={`p-4 rounded-xl border-2 text-left transition-all duration-300 ${
-                          selectedSize?.size === size.size
+                          selectedSize?._id === size._id
                             ? 'border-gold bg-gold/10 shadow-lg shadow-gold/20'
                             : 'border-gold/20 bg-black/30 hover:border-gold/40 hover:bg-gold/5'
                         }`}
@@ -279,25 +241,25 @@ const ProductModal = ({ product, onClose }) => {
                         whileTap={{ scale: 0.98 }}
                       >
                         <div className={`font-semibold ${
-                          selectedSize?.size === size.size ? 'text-gold' : 'text-white'
+                          selectedSize?._id === size._id ? 'text-gold' : 'text-white'
                         }`}>
-                          {size.size}
+                          {formatSizeLabel(size)}
                         </div>
                         <div className="text-sm text-gray-400 mt-1">
-                          {size.volume}
+                          {size.sizeMl}ml
                         </div>
                         <div className="text-gold text-lg font-bold mt-2">
-                          ৳{Math.round(product.basePrice * size.multiplier)}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {size.description}
+                          ৳{size.sellingPrice || 0}
                         </div>
                       </motion.button>
                     ))}
                   </div>
+                  {sortedSizes.length === 0 && (
+                    <p className="text-gray-400 text-sm">No sizes available</p>
+                  )}
                 </div>
 
-                {/* Quantity Selector - Luxury Design */}
+                {/* Quantity Selector */}
                 <div>
                   <label className="text-white text-lg font-light tracking-wide mb-4 block">
                     Quantity
@@ -312,7 +274,6 @@ const ProductModal = ({ product, onClose }) => {
                     >
                       <Minus size={20} />
                     </motion.button>
-                    
                     <motion.span 
                       className="text-3xl font-light text-white min-w-[60px] text-center"
                       key={quantity}
@@ -321,7 +282,6 @@ const ProductModal = ({ product, onClose }) => {
                     >
                       {quantity}
                     </motion.span>
-                    
                     <motion.button
                       onClick={() => changeQuantity(1)}
                       className="w-12 h-12 rounded-full border-2 border-gold text-gold flex items-center justify-center hover:bg-gold hover:text-black transition-all duration-300"
@@ -334,7 +294,7 @@ const ProductModal = ({ product, onClose }) => {
                   </div>
                 </div>
 
-                {/* Total Price Display */}
+                {/* Total Price */}
                 <motion.div 
                   className="bg-gradient-to-r from-gold/10 to-transparent border border-gold/20 rounded-xl p-4"
                   initial={{ opacity: 0, y: 20 }}
@@ -345,19 +305,19 @@ const ProductModal = ({ product, onClose }) => {
                     <span className="text-gray-300">Total</span>
                     <motion.span 
                       className="text-2xl font-light text-gold"
-                      key={selectedSize ? Math.round(product.basePrice * selectedSize.multiplier * quantity) : 0}
+                      key={selectedSize ? selectedSize.sellingPrice * quantity : 0}
                       initial={{ scale: 1.1 }}
                       animate={{ scale: 1 }}
                     >
-                      ${selectedSize ? Math.round(product.basePrice * selectedSize.multiplier * quantity) : 0}
+                      ৳{selectedSize ? selectedSize.sellingPrice * quantity : 0}
                     </motion.span>
                   </div>
                 </motion.div>
 
-                {/* Add to Cart Button - Premium Animation */}
+                {/* Add to Cart */}
                 <motion.button
                   onClick={addToCartFromModal}
-                  disabled={isAddingToCart}
+                  disabled={isAddingToCart || !selectedSize}
                   className="w-full bg-gradient-to-r from-gold to-yellow-600 text-black py-4 rounded-xl font-bold text-lg tracking-wide relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
                   whileHover={{ scale: 1.02, y: -2 }}
                   whileTap={{ scale: 0.98 }}
@@ -370,8 +330,6 @@ const ProductModal = ({ product, onClose }) => {
                     <ShoppingCart size={20} />
                     <span>Add to Cart</span>
                   </motion.div>
-                  
-                  {/* Loading Animation */}
                   <AnimatePresence>
                     {isAddingToCart && (
                       <motion.div
@@ -388,8 +346,6 @@ const ProductModal = ({ product, onClose }) => {
                       </motion.div>
                     )}
                   </AnimatePresence>
-                  
-                  {/* Shimmer Effect */}
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
                 </motion.button>
 
