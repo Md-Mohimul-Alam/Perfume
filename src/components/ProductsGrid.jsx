@@ -9,7 +9,7 @@ const productEmojis = {
   oil: '💧'
 };
 
-// Memoized product card component to prevent re‑renders when filter changes
+// Memoized product card component
 const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProductModal, quickAddToCart }) => {
   const isInWishlist = wishlist.includes(product.id);
 
@@ -207,6 +207,10 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
           return product.isNew;
         case 'bestsellers':
           return product.isBestseller;
+        case 'bestseller-perfume':
+          return product.isBestseller && product.category === 'perfume';
+        case 'bestseller-oil':
+          return product.isBestseller && product.category === 'oil';
         default:
           return true;
       }
@@ -217,7 +221,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     hidden: { opacity: 0 },
     visible: {
       opacity: 1,
-      transition: { staggerChildren: 0.05 } // reduced stagger for faster appearance
+      transition: { staggerChildren: 0.05 }
     }
   };
 
@@ -285,7 +289,9 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
               { key: 'perfume', label: 'Perfumes' },
               { key: 'oil', label: 'Essential Oils' },
               { key: 'new', label: 'New Arrivals' },
-              { key: 'bestsellers', label: 'Bestsellers' }
+              { key: 'bestsellers', label: 'Bestsellers' },
+              { key: 'bestseller-perfume', label: 'Bestseller Perfume' },
+              { key: 'bestseller-oil', label: 'Bestseller Oil' }
             ].map((filter) => {
               const isActive = currentFilter === filter.key;
               return (
@@ -328,7 +334,6 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true }}
-            // No AnimatePresence – just animate on mount, not on filter change
           >
             {filteredProducts.map((product) => (
               <ProductCard
