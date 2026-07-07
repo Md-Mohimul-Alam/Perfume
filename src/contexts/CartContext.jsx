@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
 const CartContext = createContext();
 
@@ -13,57 +13,99 @@ export const useCart = () => {
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
 
-  const addToCart = (product, size, quantity = 1) => {
-    const price = Math.round(product.basePrice * size.multiplier);
-    
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('storeCart');
+    if (saved) {
+      try {
+        setCart(JSON.parse(saved));
+        console.log('📦 Cart loaded from localStorage:', JSON.parse(saved));
+      } catch (_) {
+        // ignore
+      }
+    }
+  }, []);
+
+  // Persist cart changes to localStorage
+  useEffect(() => {
+    localStorage.setItem('storeCart', JSON.stringify(cart));
+    console.log('💾 Cart saved:', cart);
+  }, [cart]);
+
+  // Add item – uses the selected size's sellingPrice directly
+  const addToCart = useCallback((product, size, quantity = 1) => {
+    console.log('🛒 Adding to cart:', { product, size, quantity });
+
+    if (!size || typeof size.sellingPrice !== 'number' || size.sellingPrice <= 0) {
+      console.warn('❌ Invalid size or missing sellingPrice');
+      return;
+    }
+
+    // Generate a unique ID that combines productId, sizeMl, and timestamp
     const cartItem = {
-      id: Date.now(),
+      id: `${product.id}-${size._id || size.sizeMl}-${Date.now()}`,
       productId: product.id,
       name: product.name,
-      category: product.category,
-      size: size.size,
-      quantity,
-      price
+      category: product.category || (product.type === 'spray' ? 'perfume' : 'oil'),
+      size: size.sizeMl,
+      sizeLabel: size.sizeMl + 'ml' + (size.bottleType ? ` ${size.bottleType}` : ''),
+      price: size.sellingPrice,
+      quantity: quantity,
+      imageEmoji: product.category === 'perfume' ? '🌸' : '💧',
     };
 
-    setCart(prev => [...prev, cartItem]);
-  };
-
-  const updateCartItemQuantity = (itemId, change) => {
-    setCart(prev => prev.map(item => {
-      if (item.id === itemId) {
-        return {
-          ...item,
-          quantity: Math.max(1, item.quantity + change)
+    setCart(prev => {
+      // Check if same product & size already in cart – update quantity
+      const existingIndex = prev.findIndex(
+        item => item.productId === product.id && item.size === size.sizeMl
+      );
+      if (existingIndex >= 0) {
+        const updated = [...prev];
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: updated[existingIndex].quantity + quantity,
         };
+        console.log('🔄 Updated existing item:', updated[existingIndex]);
+        return updated;
       }
-      return item;
-    }));
-  };
+      console.log('➕ Added new item:', cartItem);
+      return [...prev, cartItem];
+    });
+  }, []);
 
-  const removeFromCart = (itemId) => {
+  const updateCartItemQuantity = useCallback((itemId, delta) => {
+    setCart(prev =>
+      prev.map(item =>
+        item.id === itemId
+          ? { ...item, quantity: Math.max(1, item.quantity + delta) }
+          : item
+      )
+    );
+  }, []);
+
+  const removeFromCart = useCallback((itemId) => {
     setCart(prev => prev.filter(item => item.id !== itemId));
-  };
+  }, []);
 
-  const clearCart = () => {
+  const clearCart = useCallback(() => {
     setCart([]);
-  };
+  }, []);
 
-  const getCartTotal = () => {
-    const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-    const tax = subtotal * 0.1;
-    const shipping = subtotal > 100 ? 0 : 5;
+  const getCartTotal = useCallback(() => {
+    const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const tax = subtotal * 0.10; // 10% tax
+    const shipping = subtotal > 100 ? 0 : 5; // free shipping over 100
     return {
       subtotal,
       tax,
       shipping,
-      total: subtotal + tax + shipping
+      total: subtotal + tax + shipping,
     };
-  };
+  }, [cart]);
 
-  const getCartCount = () => {
+  const getCartCount = useCallback(() => {
     return cart.reduce((sum, item) => sum + item.quantity, 0);
-  };
+  }, [cart]);
 
   const value = {
     cart,
@@ -72,12 +114,8 @@ export const CartProvider = ({ children }) => {
     removeFromCart,
     clearCart,
     getCartTotal,
-    getCartCount
+    getCartCount,
   };
 
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
-  );
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };

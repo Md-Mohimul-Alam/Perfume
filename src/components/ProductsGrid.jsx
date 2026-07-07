@@ -13,6 +13,14 @@ const productEmojis = {
 const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProductModal, quickAddToCart }) => {
   const isInWishlist = wishlist.includes(product.id);
 
+  // Find smallest size (excluding 3ml) for quick add
+  const getSmallestSize = useCallback(() => {
+    if (!product.sizes || product.sizes.length === 0) return null;
+    return [...product.sizes]
+      .filter(s => s.sizeMl !== 3)
+      .sort((a, b) => a.sizeMl - b.sizeMl)[0] || null;
+  }, [product.sizes]);
+
   return (
     <motion.div
       className="product-card group relative bg-white/5 border border-gold/15 rounded-lg overflow-hidden transition-all duration-400 hover:border-gold hover:bg-white/10 hover:-translate-y-2 hover:shadow-2xl hover:shadow-gold/20"
@@ -107,7 +115,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [currentFilter, setCurrentFilter] = useState('all');
-  const [visibleCount, setVisibleCount] = useState(20); // will be set based on screen width
+  const [visibleCount, setVisibleCount] = useState(20);
   const { addToCart } = useCart();
 
   // Determine initial visible count based on screen width
@@ -115,7 +123,6 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     return window.innerWidth < 768 ? 10 : 20;
   }, []);
 
-  // Set initial visible count on mount and on resize (optional)
   useEffect(() => {
     const updateCount = () => {
       setVisibleCount(getInitialCount());
@@ -125,7 +132,6 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     return () => window.removeEventListener('resize', updateCount);
   }, [getInitialCount]);
 
-  // Reset visible count when filter changes
   useEffect(() => {
     setVisibleCount(getInitialCount());
   }, [currentFilter, getInitialCount]);
@@ -204,14 +210,17 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     };
   };
 
-  // Quick add: find the smallest non-3ml size
+  // Quick add: find the smallest non-3ml size and add 1 unit
   const quickAddToCart = useCallback(
     (product, event) => {
       event?.stopPropagation();
       const sizes = product.sizes || [];
       if (sizes.length === 0) return;
       const sorted = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
-      addToCart(product, sorted[0]);
+      const smallest = sorted[0];
+      if (smallest && smallest.sellingPrice) {
+        addToCart(product, smallest, 1);
+      }
     },
     [addToCart]
   );
@@ -248,7 +257,6 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     setVisibleCount(filteredProducts.length);
   }, [filteredProducts.length]);
 
-  // Check if more products are available
   const hasMore = visibleCount < filteredProducts.length;
 
   const containerVariants = {

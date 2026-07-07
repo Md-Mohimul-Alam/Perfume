@@ -61,7 +61,6 @@ function App() {
         
         <Header toggleCart={toggleCart} />
         <Hero />
-        <AIFragranceFinder />
         <Philosophy />
         <ScentJourney />
         <ScentNotes />
@@ -74,6 +73,8 @@ function App() {
           toggleWishlist={toggleWishlist}
           openProductModal={openProductModal}
         />
+        <AIFragranceFinder />
+
         
         <Testimonials />
         <About />

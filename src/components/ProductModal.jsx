@@ -16,6 +16,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
+  const [currentImage, setCurrentImage] = useState(null); // 👈 for the image
   const { addToCart } = useCart();
 
   // Fetch fresh product data
@@ -43,6 +44,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     const isSpray = backendProduct.type === 'spray';
     const category = isSpray ? 'perfume' : 'oil';
 
+    // Exclude 3ml sizes (if any)
     const validSizes = (backendProduct.sizes || []).filter((s) => s.sizeMl !== 3);
     let basePrice = 0;
     if (validSizes.length > 0) {
@@ -72,10 +74,11 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       isBestseller: backendProduct.isBestseller || false,
       images: backendProduct.images || [],
       backendData: backendProduct,
-      sizes: validSizes,
+      sizes: validSizes, // each size has the `image` field
     };
   };
 
+  // Sort sizes – ensure 3ml is excluded and sort ascending
   const sortedSizes = useMemo(() => {
     const sizes = product.backendData?.sizes || [];
     return [...sizes]
@@ -83,11 +86,13 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       .sort((a, b) => a.sizeMl - b.sizeMl);
   }, [product.backendData?.sizes]);
 
+  // Format display label for size
   const formatSizeLabel = useCallback((size) => {
     const bottleType = size.bottle?.type || '';
     return `${size.sizeMl}ml ${bottleType}`.trim();
   }, []);
 
+  // Intensity icon
   const getIntensityIcon = useCallback((intensity) => {
     switch (intensity) {
       case 'light': return '🕯️';
@@ -97,12 +102,14 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     }
   }, []);
 
+  // Scent notes display
   const getScentNotes = useCallback(() => {
     return product.notes?.map(note =>
       note.charAt(0).toUpperCase() + note.slice(1)
     ).join(' • ') || 'Premium Blend';
   }, [product.notes]);
 
+  // Auto-select first valid size
   useEffect(() => {
     if (sortedSizes.length > 0 && !selectedSize) {
       setSelectedSize(sortedSizes[0]);
@@ -112,6 +119,18 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     }
   }, [sortedSizes, selectedSize]);
 
+  // Update current image when selected size changes
+  useEffect(() => {
+    if (selectedSize && selectedSize.image) {
+      setCurrentImage(selectedSize.image);
+    } else {
+      // Fallback to product-level images if available
+      const fallbackImage = product.images && product.images.length > 0 ? product.images[0] : null;
+      setCurrentImage(fallbackImage);
+    }
+  }, [selectedSize, product.images]);
+
+  // Lock body scroll
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => {
@@ -119,20 +138,23 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     };
   }, []);
 
+  // Add to cart – uses the new CartContext signature
   const addToCartFromModal = useCallback(async () => {
     if (selectedSize) {
       setIsAddingToCart(true);
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 500));
       addToCart(product, selectedSize, quantity);
       setIsAddingToCart(false);
       onClose();
     }
   }, [selectedSize, addToCart, product, quantity, onClose]);
 
+  // Quantity controls
   const changeQuantity = useCallback((delta) => {
     setQuantity(prev => Math.max(1, Math.min(10, prev + delta)));
   }, []);
 
+  // --- Loading state ---
   if (loading) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
@@ -144,6 +166,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     );
   }
 
+  // --- Modal ---
   return (
     <AnimatePresence>
       <motion.div
@@ -152,6 +175,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
+        {/* Backdrop */}
         <motion.div
           className="absolute inset-0 bg-gradient-to-br from-black via-purple-900/20 to-black"
           initial={{ opacity: 0 }}
@@ -160,6 +184,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
           onClick={onClose}
         />
         
+        {/* Modal Card */}
         <motion.div
           className="relative w-full max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden"
           initial={{ scale: 0.8, rotateY: -15, opacity: 0 }}
@@ -200,20 +225,30 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
               </div>
             </div>
 
+            {/* Body */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 overflow-y-auto max-h-[calc(90vh-80px)] sm:max-h-[calc(85vh-100px)]">
               {/* Left Column */}
               <div className="space-y-4 sm:space-y-6">
                 <motion.div 
-                  className="relative h-48 sm:h-56 md:h-64 bg-gradient-to-br from-gold/10 to-purple-900/10 rounded-xl border border-gold/20 flex items-center justify-center"
+                  className="relative h-48 sm:h-56 md:h-64 bg-gradient-to-br from-gold/10 to-purple-900/10 rounded-xl border border-gold/20 flex items-center justify-center overflow-hidden"
                   whileHover={{ scale: 1.02 }}
                 >
-                  <motion.div
-                    className="text-6xl sm:text-7xl md:text-8xl"
-                    animate={{ y: [0, -10, 0], rotateY: [0, 5, 0] }}
-                    transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-                  >
-                    {productEmojis[product.category]}
-                  </motion.div>
+                  {currentImage ? (
+                    <img
+                      src={currentImage}
+                      alt={product.name}
+                      className="w-full h-full object-contain p-2"
+                      onError={() => setCurrentImage(null)} // fallback to emoji on error
+                    />
+                  ) : (
+                    <motion.div
+                      className="text-6xl sm:text-7xl md:text-8xl"
+                      animate={{ y: [0, -10, 0], rotateY: [0, 5, 0] }}
+                      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+                    >
+                      {productEmojis[product.category]}
+                    </motion.div>
+                  )}
                   {product.isBestseller && (
                     <motion.div
                       className="absolute top-2 sm:top-4 left-2 sm:left-4 bg-gradient-to-r from-gold to-yellow-600 text-black px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center space-x-1"
@@ -378,7 +413,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
                       initial={{ scale: 1.1 }}
                       animate={{ scale: 1 }}
                     >
-                      ৳{selectedSize ? selectedSize.sellingPrice * quantity : 0}
+                      ৳{selectedSize ? (selectedSize.sellingPrice * quantity).toFixed(2) : '0.00'}
                     </motion.span>
                   </div>
                 </motion.div>
