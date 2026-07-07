@@ -13,14 +13,6 @@ const productEmojis = {
 const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProductModal, quickAddToCart }) => {
   const isInWishlist = wishlist.includes(product.id);
 
-  // Find smallest size (excluding 3ml) for quick add
-  const getSmallestSize = useCallback(() => {
-    if (!product.sizes || product.sizes.length === 0) return null;
-    return [...product.sizes]
-      .filter(s => s.sizeMl !== 3)
-      .sort((a, b) => a.sizeMl - b.sizeMl)[0] || null;
-  }, [product.sizes]);
-
   return (
     <motion.div
       className="product-card group relative bg-white/5 border border-gold/15 rounded-lg overflow-hidden transition-all duration-400 hover:border-gold hover:bg-white/10 hover:-translate-y-2 hover:shadow-2xl hover:shadow-gold/20"
@@ -59,9 +51,21 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
         className="w-full h-80 bg-gradient-to-br from-gold/10 to-purple-900/10 flex items-center justify-center relative overflow-hidden cursor-pointer"
         onClick={() => openProductModal(product)}
       >
-        <span className="text-6xl transition-transform duration-300 group-hover:scale-110">
-          {productEmojis[product.category] || '✨'}
-        </span>
+        {product.mainImage ? (
+          <img
+            src={product.mainImage}
+            alt={product.name}
+            className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
+            onError={(e) => {
+              e.target.style.display = 'none';
+              // fallback emoji will be shown via the empty state
+            }}
+          />
+        ) : (
+          <span className="text-6xl transition-transform duration-300 group-hover:scale-110">
+            {productEmojis[product.category] || '✨'}
+          </span>
+        )}
 
         {/* Hover Actions */}
         <div className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -172,7 +176,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Transform backend product – exclude 3ml sizes
+  // Transform backend product – exclude 3ml sizes and extract main image
   const transformProduct = (backendProduct) => {
     const isSpray = backendProduct.type === 'spray';
     const category = isSpray ? 'perfume' : 'oil';
@@ -193,6 +197,18 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
       backendProduct.createdAt &&
       new Date() - new Date(backendProduct.createdAt) < 30 * 24 * 60 * 60 * 1000;
 
+    // --- Extract main image ---
+    let mainImage = null;
+    if (backendProduct.images && backendProduct.images.length > 0) {
+      mainImage = backendProduct.images[0];
+    } else if (validSizes.length > 0) {
+      // Use the first size's image as fallback
+      const firstSize = validSizes[0];
+      if (firstSize.image) {
+        mainImage = firstSize.image;
+      }
+    }
+
     return {
       id: backendProduct._id,
       name: backendProduct.name,
@@ -205,6 +221,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
       isNew,
       isBestseller: backendProduct.isBestseller || false,
       images: backendProduct.images || [],
+      mainImage, // 👈 new field for the card
       backendData: backendProduct,
       sizes: validSizes,
     };
@@ -323,7 +340,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
           Discover our premium selection of fragrances and oils
         </motion.p>
 
-        {/* Filter Tabs with product count */}
+        {/* Filter Tabs */}
         <div className="flex flex-col items-center gap-4 mb-16">
           <div className="filter-tabs text-white flex flex-wrap justify-center gap-4">
             {[
