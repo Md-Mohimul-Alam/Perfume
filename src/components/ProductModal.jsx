@@ -9,6 +9,14 @@ const productEmojis = {
   oil: '💧'
 };
 
+// Helper to normalize image URLs (absolute)
+const normalizeImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://perfume-stock-management-system.onrender.com';
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
   const [product, setProduct] = useState(initialProduct);
   const [loading, setLoading] = useState(true);
@@ -16,7 +24,9 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
   const [quantity, setQuantity] = useState(1);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
-  const [currentImage, setCurrentImage] = useState(null); // 👈 for the image
+  const [currentImage, setCurrentImage] = useState(null);
+  const [imgError, setImgError] = useState(false);
+  const [imgLoading, setImgLoading] = useState(false);
   const { addToCart } = useCart();
 
   // Fetch fresh product data
@@ -44,7 +54,6 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     const isSpray = backendProduct.type === 'spray';
     const category = isSpray ? 'perfume' : 'oil';
 
-    // Exclude 3ml sizes (if any)
     const validSizes = (backendProduct.sizes || []).filter((s) => s.sizeMl !== 3);
     let basePrice = 0;
     if (validSizes.length > 0) {
@@ -74,11 +83,10 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       isBestseller: backendProduct.isBestseller || false,
       images: backendProduct.images || [],
       backendData: backendProduct,
-      sizes: validSizes, // each size has the `image` field
+      sizes: validSizes,
     };
   };
 
-  // Sort sizes – ensure 3ml is excluded and sort ascending
   const sortedSizes = useMemo(() => {
     const sizes = product.backendData?.sizes || [];
     return [...sizes]
@@ -86,13 +94,11 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       .sort((a, b) => a.sizeMl - b.sizeMl);
   }, [product.backendData?.sizes]);
 
-  // Format display label for size
   const formatSizeLabel = useCallback((size) => {
     const bottleType = size.bottle?.type || '';
     return `${size.sizeMl}ml ${bottleType}`.trim();
   }, []);
 
-  // Intensity icon
   const getIntensityIcon = useCallback((intensity) => {
     switch (intensity) {
       case 'light': return '🕯️';
@@ -102,7 +108,6 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     }
   }, []);
 
-  // Scent notes display
   const getScentNotes = useCallback(() => {
     return product.notes?.map(note =>
       note.charAt(0).toUpperCase() + note.slice(1)
@@ -119,15 +124,17 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     }
   }, [sortedSizes, selectedSize]);
 
-  // Update current image when selected size changes
+  // Update current image when selected size changes – with normalization
   useEffect(() => {
+    let imageUrl = null;
     if (selectedSize && selectedSize.image) {
-      setCurrentImage(selectedSize.image);
-    } else {
-      // Fallback to product-level images if available
-      const fallbackImage = product.images && product.images.length > 0 ? product.images[0] : null;
-      setCurrentImage(fallbackImage);
+      imageUrl = normalizeImageUrl(selectedSize.image);
+    } else if (product.images && product.images.length > 0) {
+      imageUrl = normalizeImageUrl(product.images[0]);
     }
+    setCurrentImage(imageUrl);
+    setImgError(false);
+    setImgLoading(!!imageUrl);
   }, [selectedSize, product.images]);
 
   // Lock body scroll
@@ -138,7 +145,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     };
   }, []);
 
-  // Add to cart – uses the new CartContext signature
+  // Add to cart
   const addToCartFromModal = useCallback(async () => {
     if (selectedSize) {
       setIsAddingToCart(true);
@@ -149,7 +156,6 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     }
   }, [selectedSize, addToCart, product, quantity, onClose]);
 
-  // Quantity controls
   const changeQuantity = useCallback((delta) => {
     setQuantity(prev => Math.max(1, Math.min(10, prev + delta)));
   }, []);
@@ -233,13 +239,23 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
                   className="relative h-48 sm:h-56 md:h-64 bg-gradient-to-br from-gold/10 to-purple-900/10 rounded-xl border border-gold/20 flex items-center justify-center overflow-hidden"
                   whileHover={{ scale: 1.02 }}
                 >
-                  {currentImage ? (
-                    <img
-                      src={currentImage}
-                      alt={product.name}
-                      className="w-full h-full object-contain p-2"
-                      onError={() => setCurrentImage(null)} // fallback to emoji on error
-                    />
+                  {currentImage && !imgError ? (
+                    <>
+                      <img
+                        src={currentImage}
+                        alt={product.name}
+                        className={`w-full h-full object-contain p-2 transition-opacity duration-300 ${
+                          imgLoading ? 'opacity-0' : 'opacity-100'
+                        }`}
+                        onLoad={() => setImgLoading(false)}
+                        onError={() => { setImgError(true); setImgLoading(false); }}
+                      />
+                      {imgLoading && (
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <motion.div
                       className="text-6xl sm:text-7xl md:text-8xl"

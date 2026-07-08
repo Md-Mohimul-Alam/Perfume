@@ -9,9 +9,19 @@ const productEmojis = {
   oil: '💧'
 };
 
+// Helper to normalize image URLs
+const normalizeImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const baseUrl = import.meta.env.VITE_API_URL || 'https://perfume-stock-management-system.onrender.com';
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
 // Memoized product card component
 const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProductModal, quickAddToCart }) => {
   const isInWishlist = wishlist.includes(product.id);
+  const [imgError, setImgError] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(false);
 
   return (
     <motion.div
@@ -51,16 +61,24 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
         className="w-full h-80 bg-gradient-to-br from-gold/10 to-purple-900/10 flex items-center justify-center relative overflow-hidden cursor-pointer"
         onClick={() => openProductModal(product)}
       >
-        {product.mainImage ? (
-          <img
-            src={product.mainImage}
-            alt={product.name}
-            className="w-full h-full object-contain p-4 transition-transform duration-300 group-hover:scale-105"
-            onError={(e) => {
-              e.target.style.display = 'none';
-              // fallback emoji will be shown via the empty state
-            }}
-          />
+        {product.mainImage && !imgError ? (
+          <>
+            <img
+              src={product.mainImage}
+              alt={product.name}
+              className={`w-full h-full object-contain p-4 transition-all duration-300 ${
+                imgLoaded ? 'opacity-100' : 'opacity-0'
+              } group-hover:scale-105`}
+              onLoad={() => setImgLoaded(true)}
+              onError={() => setImgError(true)}
+              loading="lazy"
+            />
+            {!imgLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </>
         ) : (
           <span className="text-6xl transition-transform duration-300 group-hover:scale-110">
             {productEmojis[product.category] || '✨'}
@@ -197,15 +215,14 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
       backendProduct.createdAt &&
       new Date() - new Date(backendProduct.createdAt) < 30 * 24 * 60 * 60 * 1000;
 
-    // --- Extract main image ---
+    // --- Extract main image with normalization ---
     let mainImage = null;
     if (backendProduct.images && backendProduct.images.length > 0) {
-      mainImage = backendProduct.images[0];
+      mainImage = normalizeImageUrl(backendProduct.images[0]);
     } else if (validSizes.length > 0) {
-      // Use the first size's image as fallback
       const firstSize = validSizes[0];
       if (firstSize.image) {
-        mainImage = firstSize.image;
+        mainImage = normalizeImageUrl(firstSize.image);
       }
     }
 
@@ -221,7 +238,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
       isNew,
       isBestseller: backendProduct.isBestseller || false,
       images: backendProduct.images || [],
-      mainImage, // 👈 new field for the card
+      mainImage,
       backendData: backendProduct,
       sizes: validSizes,
     };
