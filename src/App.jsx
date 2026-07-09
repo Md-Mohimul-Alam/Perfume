@@ -16,7 +16,6 @@ import ProductModal from './components/ProductModal';
 import CartSidebar from './components/CartSidebar';
 import EnhancedBackground from './components/EnhancedBackground';
 import { CartProvider } from './contexts/CartContext';
-// ❌ Remove: import { products } from './utils/constants';
 import './styles/globals.css';
 
 function App() {
@@ -68,14 +67,10 @@ function App() {
           toggleWishlist={toggleWishlist}
           openProductModal={openProductModal}
         />
-        <AIFragranceFinder />
+        <AIFragranceFinder openProductModal={openProductModal} />
         <Philosophy />
         <ScentJourney />
         <PersonalizedSection />
-        
-        {/* ProductsGrid now fetches data itself */}
-        
-
         
         <Testimonials />
         <About />

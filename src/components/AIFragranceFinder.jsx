@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import API from '../api/axios';
 
 // Mapping of note keywords to scent families
+// (Order matters: the first matching keyword determines the family)
 const noteFamilyMap = {
   floral: 'floral',
   rose: 'floral',
@@ -54,7 +55,7 @@ const getDisplayPrice = (product) => {
   return Math.min(...validSizes.map(s => s.sellingPrice));
 };
 
-const AIFragranceFinder = () => {
+const AIFragranceFinder = ({ openProductModal }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [answers, setAnswers] = useState({});
   const [products, setProducts] = useState([]);
@@ -90,7 +91,7 @@ const AIFragranceFinder = () => {
     fetchProducts();
   }, []);
 
-  // Build dynamic options
+  // Build dynamic options from product data
   const stepOptions = useMemo(() => {
     if (products.length === 0) return [];
 
@@ -312,7 +313,8 @@ const AIFragranceFinder = () => {
                     return (
                       <div
                         key={product._id}
-                        className="bg-white/5 border border-gold/15 rounded-lg p-4 text-left hover:border-gold transition-colors"
+                        className="bg-white/5 border border-gold/15 rounded-lg p-4 text-left hover:border-gold transition-colors cursor-pointer"
+                        onClick={() => openProductModal(product)}
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-gold text-sm uppercase tracking-wider">
