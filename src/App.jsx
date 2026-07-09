@@ -62,6 +62,7 @@ function App() {
         <Header toggleCart={toggleCart} />
         <Hero />
         <ScentNotes />
+        <SearchSection />
         <ProductsGrid 
           wishlist={wishlist}
           toggleWishlist={toggleWishlist}
@@ -71,7 +72,6 @@ function App() {
         <Philosophy />
         <ScentJourney />
         <PersonalizedSection />
-        <SearchSection />
         
         {/* ProductsGrid now fetches data itself */}
         
