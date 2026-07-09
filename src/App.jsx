@@ -61,19 +61,20 @@ function App() {
         
         <Header toggleCart={toggleCart} />
         <Hero />
-        <Philosophy />
-        <ScentJourney />
         <ScentNotes />
-        <PersonalizedSection />
-        <SearchSection />
-        
-        {/* ProductsGrid now fetches data itself */}
         <ProductsGrid 
           wishlist={wishlist}
           toggleWishlist={toggleWishlist}
           openProductModal={openProductModal}
         />
         <AIFragranceFinder />
+        <Philosophy />
+        <ScentJourney />
+        <PersonalizedSection />
+        <SearchSection />
+        
+        {/* ProductsGrid now fetches data itself */}
+        
 
         
         <Testimonials />
