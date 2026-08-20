@@ -1,8 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Bottle3D from './Bottle3D';
 
 const Hero = () => {
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 2;
+      const y = (e.clientY / window.innerHeight - 0.5) * 2;
+      setMousePos({ x, y });
+    };
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => window.removeEventListener('mousemove', handleMouseMove);
+  }, []);
+
   const scrollToShop = () => {
     document.getElementById('shop')?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -12,26 +24,31 @@ const Hero = () => {
       id="home"
       className="relative min-h-screen flex items-center justify-center bg-black overflow-hidden px-4 lg:px-16"
     >
-      {/* ---- BACKGROUND VIDEO ---- */}
-      <div className="absolute inset-0 w-full h-full z-0">
+      {/* Background video with parallax offset */}
+      <motion.div
+        className="absolute inset-0 z-0"
+        style={{
+          transform: `translate(${mousePos.x * 10}px, ${mousePos.y * 10}px) scale(1.05)`,
+        }}
+      >
         <video
           autoPlay
           loop
           muted
           playsInline
           className="w-full h-full object-cover"
-          poster="/images/hero-poster.jpg" // optional fallback image
+          poster="/images/hero-poster.jpg"
         >
           <source src="/videos/hero-bg.mp4" type="video/mp4" />
-          {/* Fallback: if video fails, show nothing (background stays black) */}
         </video>
-        {/* Dark overlay to improve text contrast */}
         <div className="absolute inset-0 bg-black/60 z-1" />
-      </div>
+        {/* Gold vignette */}
+        <div className="absolute inset-0 bg-gradient-radial from-transparent via-transparent to-gold/10 z-1" />
+      </motion.div>
 
-      {/* ---- PARTICLES (still above video) ---- */}
-      <div className="absolute inset-0 opacity-30 z-2 pointer-events-none">
-        {[...Array(50)].map((_, i) => (
+      {/* Particles with mouse-reactive movement */}
+      <div className="absolute inset-0 opacity-40 z-2 pointer-events-none">
+        {[...Array(60)].map((_, i) => (
           <motion.div
             key={i}
             className="absolute w-0.5 h-0.5 bg-gold rounded-full"
@@ -40,12 +57,12 @@ const Hero = () => {
               top: `${Math.random() * 100}%`,
             }}
             animate={{
-              y: [0, -50, 0],
-              x: [0, 30, 0],
-              opacity: [0, 0.4, 0],
+              y: [0, -60 - Math.random() * 40, 0],
+              x: [0, 30 * mousePos.x + Math.random() * 20, 0],
+              opacity: [0, 0.6, 0],
             }}
             transition={{
-              duration: Math.random() * 10 + 10,
+              duration: 12 + Math.random() * 15,
               repeat: Infinity,
               delay: Math.random() * 15,
             }}
@@ -53,17 +70,14 @@ const Hero = () => {
         ))}
       </div>
 
-      {/* ---- CONTENT (on top) ---- */}
+      {/* Content */}
       <div className="relative z-10 text-center text-white py-32">
         <motion.h1
-          className="hero-title font-display font-light tracking-[0.5em] uppercase mb-6"
+          className="font-display font-light tracking-[0.5em] uppercase mb-6 gold-gradient"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1 }}
-          style={{
-            fontSize: 'clamp(3.75rem, 12vw, 8.75rem)',
-            textShadow: '0 0 30px rgba(212, 175, 55, 0.5)'
-          }}
+          style={{ fontSize: 'clamp(3.75rem, 12vw, 8.75rem)' }}
         >
           LUXE
         </motion.h1>
@@ -76,7 +90,7 @@ const Hero = () => {
         />
 
         <motion.p
-          className="hero-subtitle text-gray-400 text-lg tracking-widest uppercase font-light mb-16"
+          className="text-gray-400 text-lg tracking-widest uppercase font-light mb-16"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 1, delay: 0.4 }}
@@ -84,7 +98,6 @@ const Hero = () => {
           Premium Fragrances & Essential Oils
         </motion.p>
 
-        {/* 3D Bottle */}
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -101,24 +114,20 @@ const Hero = () => {
           className="mt-12 mb-8"
         >
           <motion.button
-            className="cta-btn border border-gold text-white px-12 py-4 tracking-widest uppercase text-sm font-light relative overflow-hidden group"
+            className="border border-gold text-white px-12 py-4 tracking-widest uppercase text-sm font-light relative overflow-hidden group"
             onClick={scrollToShop}
             whileHover="hover"
             whileTap={{ scale: 0.95 }}
           >
             <motion.span
-              variants={{
-                hover: { x: -100 }
-              }}
+              variants={{ hover: { x: -100 } }}
               transition={{ duration: 0.4 }}
               className="relative z-10"
             >
               Explore Collection
             </motion.span>
             <motion.span
-              variants={{
-                hover: { x: 0 }
-              }}
+              variants={{ hover: { x: 0 } }}
               transition={{ duration: 0.4 }}
               className="absolute inset-0 bg-gold text-black flex items-center justify-center z-20"
             >

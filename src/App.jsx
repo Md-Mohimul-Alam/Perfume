@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Header from './components/Header';
 import Hero from './components/Hero';
 import AIFragranceFinder from './components/AIFragranceFinder';
@@ -22,6 +22,19 @@ function App() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [wishlist, setWishlist] = useState([]);
+  const cursorRef = useRef(null);
+
+  // Custom cursor
+  useEffect(() => {
+    const moveCursor = (e) => {
+      if (cursorRef.current) {
+        cursorRef.current.style.left = e.clientX + 'px';
+        cursorRef.current.style.top = e.clientY + 'px';
+      }
+    };
+    window.addEventListener('mousemove', moveCursor);
+    return () => window.removeEventListener('mousemove', moveCursor);
+  }, []);
 
   useEffect(() => {
     const savedWishlist = localStorage.getItem('luxeWishlist');
@@ -35,7 +48,6 @@ function App() {
       const newWishlist = prev.includes(productId) 
         ? prev.filter(id => id !== productId)
         : [...prev, productId];
-      
       localStorage.setItem('luxeWishlist', JSON.stringify(newWishlist));
       return newWishlist;
     });
@@ -56,6 +68,7 @@ function App() {
   return (
     <CartProvider>
       <div className="App">
+        <div ref={cursorRef} className="cursor-dot" />
         <EnhancedBackground />
         
         <Header toggleCart={toggleCart} />
@@ -69,9 +82,7 @@ function App() {
         />
         <AIFragranceFinder openProductModal={openProductModal} />
         <Philosophy />
-        <ScentJourney />
         <PersonalizedSection />
-        
         <Testimonials />
         <About />
         <Contact />

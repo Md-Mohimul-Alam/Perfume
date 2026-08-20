@@ -1,39 +1,15 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, Sparkles, Search } from 'lucide-react';
 import API from '../api/axios';
 
-// Mapping of note keywords to scent families
-// (Order matters: the first matching keyword determines the family)
+// ----- Helper functions (unchanged) -----
 const noteFamilyMap = {
-  floral: 'floral',
-  rose: 'floral',
-  jasmine: 'floral',
-  lily: 'floral',
-  violet: 'floral',
-  tuberose: 'floral',
-  woody: 'woody',
-  cedar: 'woody',
-  sandalwood: 'woody',
-  patchouli: 'woody',
-  vetiver: 'woody',
-  citrus: 'citrus',
-  lemon: 'citrus',
-  orange: 'citrus',
-  bergamot: 'citrus',
-  grapefruit: 'citrus',
-  oriental: 'oriental',
-  amber: 'oriental',
-  vanilla: 'oriental',
-  spice: 'oriental',
-  spicy: 'oriental',
-  musk: 'oriental',
-  fresh: 'fresh',
-  aquatic: 'fresh',
-  green: 'fresh',
-  fruity: 'fruity',
-  sweet: 'gourmand',
-  gourmand: 'gourmand',
-  chocolate: 'gourmand',
+  floral: 'floral', rose: 'floral', jasmine: 'floral', lily: 'floral', violet: 'floral',
+  woody: 'woody', cedar: 'woody', sandalwood: 'woody', patchouli: 'woody', vetiver: 'woody',
+  citrus: 'citrus', lemon: 'citrus', orange: 'citrus', bergamot: 'citrus', grapefruit: 'citrus',
+  oriental: 'oriental', amber: 'oriental', vanilla: 'oriental', spice: 'oriental', spicy: 'oriental', musk: 'oriental',
+  fresh: 'fresh', aquatic: 'fresh', green: 'fresh', fruity: 'fruity', sweet: 'gourmand', gourmand: 'gourmand'
 };
 
 const getScentFamily = (notesArray) => {
@@ -47,7 +23,6 @@ const getScentFamily = (notesArray) => {
   return 'other';
 };
 
-// Helper to get display price (minimum positive price among valid sizes)
 const getDisplayPrice = (product) => {
   if (!product.sizes || product.sizes.length === 0) return 0;
   const validSizes = product.sizes.filter(s => s.sellingPrice > 0 && s.sizeMl !== 3);
@@ -55,14 +30,16 @@ const getDisplayPrice = (product) => {
   return Math.min(...validSizes.map(s => s.sellingPrice));
 };
 
+// ----- Main Component -----
 const AIFragranceFinder = ({ openProductModal }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [answers, setAnswers] = useState({});
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isResetting, setIsResetting] = useState(false);
 
-  // Fetch products
+  // Fetch products (unchanged)
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -73,12 +50,7 @@ const AIFragranceFinder = ({ openProductModal }) => {
         else if (Array.isArray(response.data.products)) raw = response.data.products;
         else if (Array.isArray(response.data.data)) raw = response.data.data;
         else if (Array.isArray(response.data.items)) raw = response.data.items;
-
-        // Filter products with at least one positive-priced size (excluding 3ml)
-        const valid = raw.filter(p => {
-          if (!p.sizes || p.sizes.length === 0) return false;
-          return p.sizes.some(s => s.sellingPrice > 0 && s.sizeMl !== 3);
-        });
+        const valid = raw.filter(p => p.sizes && p.sizes.some(s => s.sellingPrice > 0 && s.sizeMl !== 3));
         setProducts(valid);
         setError(null);
       } catch (err) {
@@ -91,19 +63,12 @@ const AIFragranceFinder = ({ openProductModal }) => {
     fetchProducts();
   }, []);
 
-  // Build dynamic options from product data
+  // Build dynamic options from product data (unchanged logic, but we add labels for steps)
   const stepOptions = useMemo(() => {
     if (products.length === 0) return [];
-
     const intensities = new Set();
-    products.forEach(p => {
-      if (p.intensity) intensities.add(p.intensity);
-    });
-    const intensityOptions = Array.from(intensities).map(val => ({
-      value: val,
-      label: val.charAt(0).toUpperCase() + val.slice(1)
-    }));
-
+    products.forEach(p => { if (p.intensity) intensities.add(p.intensity); });
+    const intensityOptions = Array.from(intensities).map(val => ({ value: val, label: val.charAt(0).toUpperCase() + val.slice(1) }));
     const families = new Set();
     products.forEach(p => {
       if (p.notes && p.notes.length > 0) {
@@ -111,37 +76,23 @@ const AIFragranceFinder = ({ openProductModal }) => {
         if (family !== 'other') families.add(family);
       }
     });
-    const familyOptions = Array.from(families).map(val => ({
-      value: val,
-      label: val.charAt(0).toUpperCase() + val.slice(1)
-    }));
-
+    const familyOptions = Array.from(families).map(val => ({ value: val, label: val.charAt(0).toUpperCase() + val.slice(1) }));
     const bestForSet = new Set();
-    products.forEach(p => {
-      if (p.bestFor && p.bestFor.length > 0) {
-        p.bestFor.forEach(bf => bestForSet.add(bf));
-      }
-    });
-    const bestForOptions = Array.from(bestForSet).map(val => ({
-      value: val,
-      label: val.charAt(0).toUpperCase() + val.slice(1)
-    }));
-
+    products.forEach(p => { if (p.bestFor && p.bestFor.length > 0) p.bestFor.forEach(bf => bestForSet.add(bf)); });
+    const bestForOptions = Array.from(bestForSet).map(val => ({ value: val, label: val.charAt(0).toUpperCase() + val.slice(1) }));
     return [
-      { step: 1, question: "What mood are you seeking?", options: intensityOptions },
-      { step: 2, question: "Which scent family resonates with you?", options: familyOptions },
-      { step: 3, question: "When will you primarily wear this fragrance?", options: bestForOptions }
+      { step: 1, question: "What mood are you seeking?", options: intensityOptions, icon: '✨' },
+      { step: 2, question: "Which scent family resonates with you?", options: familyOptions, icon: '🌸' },
+      { step: 3, question: "When will you primarily wear this fragrance?", options: bestForOptions, icon: '📅' }
     ];
   }, [products]);
 
   // Filter products based on answers
   const recommendedProducts = useMemo(() => {
     if (Object.keys(answers).length < 3) return [];
-
     const selectedIntensity = answers[1];
     const selectedFamily = answers[2];
     const selectedBestFor = answers[3];
-
     return products.filter(p => {
       if (selectedIntensity && p.intensity !== selectedIntensity) return false;
       if (selectedFamily) {
@@ -155,6 +106,7 @@ const AIFragranceFinder = ({ openProductModal }) => {
     });
   }, [products, answers]);
 
+  // Handlers
   const selectOption = (stepId, value) => {
     setAnswers(prev => ({ ...prev, [stepId]: value }));
     setTimeout(() => {
@@ -168,76 +120,133 @@ const AIFragranceFinder = ({ openProductModal }) => {
   };
 
   const resetFinder = () => {
+    setIsResetting(true);
     setAnswers({});
     setCurrentStep(1);
+    setTimeout(() => setIsResetting(false), 400);
   };
 
+  // Step labels
+  const stepLabels = ['Mood', 'Scent Family', 'Occasion'];
+
+  // Loading state
   if (loading) {
     return (
-      <section className="ai-fragrance-finder py-20 px-4 bg-black/80 min-h-[400px] flex items-center justify-center">
+      <section className="py-20 px-4 bg-black/80 min-h-[400px] flex items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading fragrance finder...</p>
+          <div className="w-14 h-14 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400 text-sm tracking-widest uppercase">Loading fragrance finder...</p>
         </div>
       </section>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <section className="ai-fragrance-finder py-20 px-4 bg-black/80 min-h-[400px] flex items-center justify-center">
+      <section className="py-20 px-4 bg-black/80 min-h-[400px] flex items-center justify-center">
         <div className="text-center text-gray-400">
-          <p className="text-red-500">{error}</p>
+          <p className="text-red-500 text-lg">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-6 py-2 border border-gold/30 text-white hover:bg-gold hover:text-black transition-colors"
+          >
+            Retry
+          </button>
         </div>
       </section>
     );
   }
 
+  // Empty products
   if (products.length === 0) {
     return (
-      <section className="ai-fragrance-finder py-20 px-4 bg-black/80 min-h-[400px] flex items-center justify-center">
+      <section className="py-20 px-4 bg-black/80 min-h-[400px] flex items-center justify-center">
         <div className="text-center text-gray-400">
+          <p className="text-2xl mb-2">🛒</p>
           <p>No products available to find fragrances.</p>
         </div>
       </section>
     );
   }
 
-  const progress = (currentStep / 4) * 100;
-
+  // ----- Render -----
   return (
-    <section className="ai-fragrance-finder py-20 px-4 bg-black/80 relative overflow-hidden border-y border-gold/20">
-      <div className="absolute inset-0 bg-gradient-to-r from-gold/10 to-purple-900/10 animate-pulse" />
-      
+    <section className="py-20 px-4 bg-black/80 relative overflow-hidden border-y border-gold/20">
+      {/* Background glow */}
+      <div className="absolute inset-0 bg-gradient-to-r from-gold/10 via-purple-900/10 to-gold/10 animate-pulse" />
+      <div className="absolute top-0 left-0 w-1/3 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+      <div className="absolute bottom-0 right-0 w-1/3 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+
       <div className="max-w-6xl mx-auto relative z-10 text-center">
-        <motion.h2 
-          className="font-display text-4xl text-white mb-4 tracking-widest uppercase font-light"
-          initial={{ opacity: 0, y: 30 }}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          AI Fragrance Finder
-        </motion.h2>
-        
-        <motion.p
-          className="text-gray-400 text-lg mb-12 tracking-widest font-light"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          Our advanced AI will help you discover your perfect scent
-        </motion.p>
+          <h2 className="font-display text-4xl md:text-5xl text-white mb-4 tracking-widest uppercase font-light gold-gradient">
+            AI Fragrance Finder
+          </h2>
+          <p className="text-gray-400 text-lg mb-12 tracking-widest font-light">
+            Our advanced AI will help you discover your perfect scent
+          </p>
+        </motion.div>
 
-        {/* Progress Bar */}
-        <div className="w-full h-1 bg-gold/20 rounded-full mb-12 overflow-hidden">
-          <motion.div 
-            className="h-full bg-gold"
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5 }}
-          />
+        {/* Step progress with labels */}
+        <div className="flex justify-center items-center gap-2 md:gap-6 mb-12">
+          {[1, 2, 3].map((step) => {
+            const isActive = currentStep === step;
+            const isCompleted = currentStep > step;
+            const isNext = currentStep === step + 1; // for animation of line
+
+            return (
+              <div key={step} className="flex items-center">
+                <motion.div
+                  className={`relative flex flex-col items-center transition-colors ${
+                    isCompleted ? 'text-gold' : isActive ? 'text-gold' : 'text-gray-400'
+                  }`}
+                  animate={{ scale: isActive ? 1.1 : 1 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+                >
+                  <div className={`
+                    w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-colors
+                    ${isCompleted ? 'bg-gold border-gold text-black' :
+                      isActive ? 'border-gold text-gold' : 'border-gold/30 text-gray-400'}
+                  `}>
+                    {isCompleted ? (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 400 }}
+                      >
+                        ✓
+                      </motion.span>
+                    ) : (
+                      step
+                    )}
+                  </div>
+                  <span className={`text-[10px] uppercase tracking-widest mt-1 ${
+                    isCompleted ? 'text-gold' : isActive ? 'text-gold' : 'text-gray-500'
+                  }`}>
+                    {stepLabels[step - 1]}
+                  </span>
+                </motion.div>
+                {step < 3 && (
+                  <motion.div
+                    className={`w-8 md:w-16 h-0.5 mx-2 md:mx-4 ${
+                      isCompleted ? 'bg-gold' : 'bg-gold/30'
+                    }`}
+                    initial={{ scaleX: 0 }}
+                    animate={{ scaleX: isCompleted ? 1 : 0 }}
+                    transition={{ duration: 0.4 }}
+                  />
+                )}
+              </div>
+            );
+          })}
         </div>
 
+        {/* Main content */}
         <AnimatePresence mode="wait">
           {currentStep <= 3 ? (
             stepOptions.map((step) => (
@@ -245,23 +254,23 @@ const AIFragranceFinder = ({ openProductModal }) => {
                 <motion.div
                   key={step.step}
                   className="ai-finder-step"
-                  initial={{ opacity: 0, y: 20 }}
+                  initial={{ opacity: 0, y: 30 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.5 }}
+                  exit={{ opacity: 0, y: -30 }}
+                  transition={{ duration: 0.5, ease: 'easeOut' }}
                 >
-                  <div className="ai-finder-question text-2xl text-white mb-8 font-light tracking-wide">
+                  <div className="text-2xl md:text-3xl text-white mb-8 font-light tracking-wide">
+                    <span className="mr-2">{step.icon}</span>
                     {step.question}
                   </div>
-                  
-                  <div className="ai-finder-options flex flex-wrap justify-center gap-4">
+                  <div className="flex flex-wrap justify-center gap-4">
                     {step.options.map((option) => (
                       <motion.button
                         key={option.value}
                         className={`px-6 py-3 border text-sm tracking-wider uppercase font-light transition-all duration-300 ${
                           answers[step.step] === option.value
-                            ? 'border-gold bg-gold text-black'
-                            : 'border-gold/30 text-white hover:border-gold'
+                            ? 'border-gold bg-gold text-black shadow-lg shadow-gold/30'
+                            : 'border-gold/30 text-white hover:border-gold hover:bg-gold/10'
                         }`}
                         onClick={() => selectOption(step.step, option.value)}
                         whileHover={{ scale: 1.05 }}
@@ -271,20 +280,22 @@ const AIFragranceFinder = ({ openProductModal }) => {
                       </motion.button>
                     ))}
                   </div>
-
                   {currentStep > 1 && (
-                    <button
+                    <motion.button
                       onClick={goBack}
-                      className="mt-8 text-gray-400 hover:text-gold transition-colors"
+                      className="mt-8 text-gray-400 hover:text-gold transition-colors flex items-center justify-center gap-2 mx-auto"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.3 }}
                     >
-                      ← Go back
-                    </button>
+                      <ChevronLeft size={16} /> Go back
+                    </motion.button>
                   )}
                 </motion.div>
               )
             ))
           ) : (
-            // Results
+            // Results step
             <motion.div
               className="ai-finder-results"
               initial={{ opacity: 0, y: 20 }}
@@ -292,67 +303,100 @@ const AIFragranceFinder = ({ openProductModal }) => {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.5 }}
             >
-              <h3 className="text-2xl text-white mb-6 font-light tracking-wide">
-                Your recommended fragrances
-              </h3>
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <Sparkles className="text-gold" size={24} />
+                <h3 className="text-2xl md:text-3xl text-white font-light tracking-wide">
+                  Your recommended fragrances
+                </h3>
+                <span className="text-gold text-sm bg-gold/20 px-3 py-1 rounded-full">
+                  {recommendedProducts.length} found
+                </span>
+              </div>
 
               {recommendedProducts.length === 0 ? (
-                <div className="text-gray-400">
+                <motion.div
+                  className="text-gray-400 py-12"
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                >
+                  <p className="text-6xl mb-4">🔍</p>
                   <p>No products match your criteria. Try different selections.</p>
                   <button
                     onClick={resetFinder}
-                    className="mt-4 text-gold underline"
+                    className="mt-4 text-gold underline hover:text-gold/80 transition"
                   >
                     Start over
                   </button>
-                </div>
+                </motion.div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
-                  {recommendedProducts.slice(0, 12).map((product) => {
-                    const displayPrice = getDisplayPrice(product);
-                    return (
-                      <div
-                        key={product._id}
-                        className="bg-white/5 border border-gold/15 rounded-lg p-4 text-left hover:border-gold transition-colors cursor-pointer"
-                        onClick={() => openProductModal(product)}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="text-gold text-sm uppercase tracking-wider">
-                            {product.type === 'spray' ? 'Perfume' : 'Oil'}
-                          </span>
-                          {product.isBestseller && (
-                            <span className="bg-red-600 text-white text-xs px-2 py-1 rounded">Bestseller</span>
-                          )}
-                        </div>
-                        <h4 className="text-white text-lg font-light mt-2">{product.name}</h4>
-                        <p className="text-gray-400 text-sm mt-1 line-clamp-2">{product.description}</p>
-                        <div className="mt-3 flex justify-between items-center">
-                          <span className="text-gold font-medium">
-                            From ৳{displayPrice}
-                          </span>
-                          <span className="text-xs text-gray-500 capitalize">
-                            {product.intensity} • {product.bestFor?.join(', ')}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+                    {recommendedProducts.slice(0, 12).map((product, index) => {
+                      const displayPrice = getDisplayPrice(product);
+                      return (
+                        <motion.div
+                          key={product._id}
+                          initial={{ opacity: 0, y: 30 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="group bg-white/5 border border-gold/15 rounded-xl p-5 text-left hover:border-gold hover:bg-white/10 transition-all duration-300 cursor-pointer hover:shadow-[0_0_30px_rgba(212,175,55,0.15)]"
+                          onClick={() => openProductModal(product)}
+                        >
+                          <div className="flex items-start justify-between">
+                            <span className="text-gold text-xs tracking-widest uppercase font-medium">
+                              {product.type === 'spray' ? 'Perfume' : 'Oil'}
+                            </span>
+                            {product.isBestseller && (
+                              <span className="bg-red-600 text-white text-[10px] px-2 py-1 rounded-full">Bestseller</span>
+                            )}
+                          </div>
+                          <h4 className="text-white text-lg font-light mt-2 group-hover:text-gold transition-colors">
+                            {product.name}
+                          </h4>
+                          <p className="text-gray-400 text-sm mt-1 line-clamp-2">
+                            {product.description || 'A premium fragrance crafted for the discerning.'}
+                          </p>
+                          <div className="mt-4 flex items-center justify-between">
+                            <span className="text-gold font-semibold">From ৳{displayPrice}</span>
+                            <span className="text-xs text-gray-500 capitalize">
+                              {product.intensity} • {product.bestFor?.slice(0, 2).join(', ')}
+                            </span>
+                          </div>
+                          <div className="mt-3 pt-3 border-t border-gold/10 flex justify-end">
+                            <span className="text-xs text-gold/70 group-hover:text-gold transition flex items-center gap-1">
+                              View details <span className="text-lg">→</span>
+                            </span>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                  {recommendedProducts.length > 12 && (
+                    <p className="text-gray-400 text-sm mt-4">
+                      Showing 12 of {recommendedProducts.length} products
+                    </p>
+                  )}
+                </>
               )}
 
-              <div className="flex justify-center gap-4 mt-10">
-                <button
+              <div className="flex flex-wrap justify-center gap-4 mt-10">
+                <motion.button
                   onClick={resetFinder}
-                  className="px-6 py-2 border border-gold/30 text-white hover:bg-gold/10 transition-colors"
+                  className="px-6 py-3 border border-gold/30 text-white hover:bg-gold/10 transition-colors rounded-lg text-sm tracking-wider uppercase"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  disabled={isResetting}
                 >
-                  Start Over
-                </button>
-                <button
+                  {isResetting ? 'Resetting...' : 'Start Over'}
+                </motion.button>
+                <motion.button
                   onClick={() => setCurrentStep(1)}
-                  className="px-6 py-2 bg-gold text-black hover:bg-gold/90 transition-colors"
+                  className="px-6 py-3 bg-gold text-black hover:bg-gold/90 transition-colors rounded-lg text-sm tracking-wider uppercase font-medium"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
                   Refine Search
-                </button>
+                </motion.button>
               </div>
             </motion.div>
           )}

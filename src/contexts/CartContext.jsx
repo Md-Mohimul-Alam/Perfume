@@ -13,7 +13,6 @@ export const useCart = () => {
 export const CartProvider = ({ children }) => {
   const [cart, setCart] = useState([]);
 
-  // Load cart from localStorage on mount
   useEffect(() => {
     const saved = localStorage.getItem('storeCart');
     if (saved) {
@@ -26,13 +25,11 @@ export const CartProvider = ({ children }) => {
     }
   }, []);
 
-  // Persist cart changes to localStorage
   useEffect(() => {
     localStorage.setItem('storeCart', JSON.stringify(cart));
     console.log('💾 Cart saved:', cart);
   }, [cart]);
 
-  // Add item – uses the selected size's sellingPrice directly
   const addToCart = useCallback((product, size, quantity = 1) => {
     console.log('🛒 Adding to cart:', { product, size, quantity });
 
@@ -41,7 +38,6 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
-    // Generate a unique ID that combines productId, sizeMl, and timestamp
     const cartItem = {
       id: `${product.id}-${size._id || size.sizeMl}-${Date.now()}`,
       productId: product.id,
@@ -55,7 +51,6 @@ export const CartProvider = ({ children }) => {
     };
 
     setCart(prev => {
-      // Check if same product & size already in cart – update quantity
       const existingIndex = prev.findIndex(
         item => item.productId === product.id && item.size === size.sizeMl
       );
@@ -93,8 +88,8 @@ export const CartProvider = ({ children }) => {
 
   const getCartTotal = useCallback(() => {
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const tax = subtotal * 0.10; // 10% tax
-    const shipping = subtotal > 100 ? 0 : 5; // free shipping over 100
+    const tax = subtotal * 0.10;
+    const shipping = subtotal > 100 ? 0 : 5;
     return {
       subtotal,
       tax,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../contexts/CartContext';
 
 const Header = ({ toggleCart }) => {
@@ -8,15 +8,11 @@ const Header = ({ toggleCart }) => {
 
   useEffect(() => {
     const handleScroll = () => {
-      // Change background when scrolled past 20% of viewport height
       const threshold = window.innerHeight * 0.2;
       setIsScrolled(window.scrollY > threshold);
     };
-
     window.addEventListener('scroll', handleScroll, { passive: true });
-    // Initial check
     handleScroll();
-
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -25,10 +21,10 @@ const Header = ({ toggleCart }) => {
       initial={{ y: -100 }}
       animate={{ y: 0 }}
       transition={{ duration: 0.6 }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isScrolled
-          ? 'bg-black/95 backdrop-blur-sm border-b border-gold/20'
-          : 'bg-transparent backdrop-blur-lg border-b border-gold/15'
+          ? 'bg-black/95 backdrop-blur-md border-b border-gold/30 shadow-[0_4px_30px_rgba(212,175,55,0.15)]'
+          : 'bg-transparent backdrop-blur-sm border-b border-gold/10'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 lg:px-16 py-5 flex justify-between items-center">
@@ -40,11 +36,8 @@ const Header = ({ toggleCart }) => {
           <img src="/logo.jpg" alt="Logo" className="w-20 h-20 object-cover rounded-full" />
           <motion.div
             className="absolute bottom-0 left-0 w-full h-px bg-gold"
-            variants={{
-              hover: { x: 0 },
-              initial: { x: "-100%" }
-            }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+            variants={{ hover: { x: 0 }, initial: { x: '-100%' } }}
+            transition={{ duration: 0.6, ease: 'easeOut' }}
           />
         </motion.a>
 
@@ -60,9 +53,7 @@ const Header = ({ toggleCart }) => {
                   {item}
                   <motion.div
                     className="absolute bottom-0 left-0 w-0 h-px bg-gold"
-                    variants={{
-                      hover: { width: "100%" }
-                    }}
+                    variants={{ hover: { width: '100%' } }}
                     transition={{ duration: 0.3 }}
                   />
                 </motion.a>
@@ -78,9 +69,7 @@ const Header = ({ toggleCart }) => {
           whileTap={{ scale: 0.95 }}
         >
           <motion.span
-            variants={{
-              hover: { x: -100 }
-            }}
+            variants={{ hover: { x: -100 } }}
             transition={{ duration: 0.4 }}
             className="relative z-10 flex items-center space-x-2"
           >
@@ -91,22 +80,18 @@ const Header = ({ toggleCart }) => {
             </svg>
             <span>CART</span>
           </motion.span>
-          
-          <motion.span
-            variants={{
-              hover: { x: 0 }
-            }}
-            transition={{ duration: 0.4 }}
-            className="absolute inset-0 bg-transparent flex items-center justify-center text-black z-20"
-          >
-          </motion.span>
 
-          <motion.span
-            className="cart-count bg-gold text-black text-xs w-5 h-5 rounded-full flex items-center justify-center font-semibold"
-            whileHover={{ scale: 1.1 }}
-          >
-            {getCartCount()}
-          </motion.span>
+          <AnimatePresence>
+            <motion.span
+              key={getCartCount()}
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 1.5, opacity: 0 }}
+              className="cart-count bg-gold text-black text-xs w-5 h-5 rounded-full flex items-center justify-center font-semibold"
+            >
+              {getCartCount()}
+            </motion.span>
+          </AnimatePresence>
         </motion.button>
       </div>
     </motion.header>
