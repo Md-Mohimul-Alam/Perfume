@@ -44,7 +44,7 @@ const AIFragranceFinder = ({ openProductModal }) => {
     const fetchProducts = async () => {
       try {
         setLoading(true);
-        const response = await API.get('/products?limit=10000');
+        const response = await API.get('/products?showOnClient=true&limit=10000');
         let raw = [];
         if (Array.isArray(response.data)) raw = response.data;
         else if (Array.isArray(response.data.products)) raw = response.data.products;
