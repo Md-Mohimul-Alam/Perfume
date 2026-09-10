@@ -63,6 +63,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       bestFor: backendProduct.bestFor || ['all'],
       isNew,
       isBestseller: backendProduct.isBestseller || false,
+      isStockOut: backendProduct.isStockOut || false,
       images: backendProduct.images || [],
       backendData: backendProduct,
       sizes: validSizes,
@@ -105,7 +106,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
   }, []);
 
   const addToCartFromModal = useCallback(async () => {
-    if (selectedSize) {
+    if (selectedSize && !product.isStockOut) {
       setIsAddingToCart(true);
       await new Promise(resolve => setTimeout(resolve, 500));
       addToCart(product, selectedSize, quantity);
@@ -128,6 +129,13 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
         <motion.div className="absolute inset-0 bg-black/70 backdrop-blur-xl" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} />
         <motion.div className="relative w-full max-w-full sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden" initial={{ scale: 0.8, rotateY: -15, opacity: 0 }} animate={{ scale: 1, rotateY: 0, opacity: 1 }} exit={{ scale: 0.8, rotateY: 15, opacity: 0 }} transition={{ type: 'spring', damping: 25, stiffness: 200 }} style={{ perspective: '1000px' }}>
           <div className="relative bg-gradient-to-br from-gray-900 via-black to-gray-800 border border-gold/30 rounded-2xl overflow-hidden shadow-2xl shadow-gold/20">
+            {/* Stock Out Banner */}
+            {product.isStockOut && (
+              <div className="bg-red-600/20 border-b border-red-500/40 text-red-300 text-xs tracking-widest uppercase text-center py-2 px-4 font-semibold">
+                This product is currently out of stock
+              </div>
+            )}
+
             {/* Header */}
             <div className="relative bg-gradient-to-r from-gold/10 via-gold/5 to-transparent border-b border-gold/20 p-4 sm:p-6">
               <div className="flex items-center justify-between gap-2">
@@ -146,7 +154,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 p-4 sm:p-6 lg:p-8 overflow-y-auto max-h-[calc(90vh-80px)] sm:max-h-[calc(85vh-100px)]">
               {/* Left */}
               <div className="space-y-4 sm:space-y-6">
-                <motion.div className="relative h-48 sm:h-56 md:h-64 bg-gradient-to-br from-gold/10 to-purple-900/10 rounded-xl border border-gold/20 flex items-center justify-center overflow-hidden" whileHover={{ scale: 1.02 }}>
+                <motion.div className={`relative h-48 sm:h-56 md:h-64 rounded-xl border border-gold/20 flex items-center justify-center overflow-hidden ${product.isStockOut ? 'bg-gray-900/40 grayscale' : 'bg-gradient-to-br from-gold/10 to-purple-900/10'}`} whileHover={{ scale: product.isStockOut ? 1 : 1.02 }}>
                   {currentImage && !imgError ? (
                     <>
                       <img src={currentImage} alt={product.name} className={`w-full h-full object-contain p-2 transition-opacity duration-300 ${imgLoading ? 'opacity-0' : 'opacity-100'}`} onLoad={() => setImgLoading(false)} onError={() => { setImgError(true); setImgLoading(false); }} />
@@ -212,9 +220,9 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
                 <div>
                   <label className="text-white text-base sm:text-lg font-light tracking-wide mb-3 sm:mb-4 block">Quantity</label>
                   <div className="flex items-center justify-between bg-black/50 rounded-xl border border-gold/20 p-3 sm:p-4">
-                    <motion.button onClick={() => changeQuantity(-1)} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-gold text-gold flex items-center justify-center hover:bg-gold hover:text-black transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} disabled={quantity <= 1}><Minus size={16} className="sm:w-5 sm:h-5" /></motion.button>
+                    <motion.button onClick={() => changeQuantity(-1)} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-gold text-gold flex items-center justify-center hover:bg-gold hover:text-black transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} disabled={quantity <= 1 || product.isStockOut}><Minus size={16} className="sm:w-5 sm:h-5" /></motion.button>
                     <motion.span className="text-2xl sm:text-3xl font-light text-white min-w-[40px] sm:min-w-[60px] text-center" key={quantity} initial={{ scale: 1.2 }} animate={{ scale: 1 }}>{quantity}</motion.span>
-                    <motion.button onClick={() => changeQuantity(1)} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-gold text-gold flex items-center justify-center hover:bg-gold hover:text-black transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} disabled={quantity >= 10}><Plus size={16} className="sm:w-5 sm:h-5" /></motion.button>
+                    <motion.button onClick={() => changeQuantity(1)} className="w-10 h-10 sm:w-12 sm:h-12 rounded-full border-2 border-gold text-gold flex items-center justify-center hover:bg-gold hover:text-black transition-all duration-300 disabled:opacity-30 disabled:cursor-not-allowed" whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} disabled={quantity >= 10 || product.isStockOut}><Plus size={16} className="sm:w-5 sm:h-5" /></motion.button>
                   </div>
                 </div>
 
@@ -222,10 +230,15 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
                   <div className="flex justify-between items-center"><span className="text-gray-300 text-sm sm:text-base">Total</span><motion.span className="text-xl sm:text-2xl font-light text-gold" key={selectedSize ? selectedSize.sellingPrice * quantity : 0} initial={{ scale: 1.1 }} animate={{ scale: 1 }}>৳{selectedSize ? (selectedSize.sellingPrice * quantity).toFixed(2) : '0.00'}</motion.span></div>
                 </motion.div>
 
-                <motion.button onClick={addToCartFromModal} disabled={isAddingToCart || !selectedSize} className="w-full bg-gradient-to-r from-gold to-yellow-600 text-black py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg tracking-wide relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed" whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }}>
-                  <motion.div className="flex items-center justify-center space-x-2" initial={false} animate={isAddingToCart ? { opacity: 0 } : { opacity: 1 }}><ShoppingCart size={18} className="sm:w-5 sm:h-5" /><span>Add to Cart</span></motion.div>
+                <motion.button onClick={addToCartFromModal} disabled={isAddingToCart || !selectedSize || product.isStockOut} className={`w-full py-3 sm:py-4 rounded-xl font-bold text-base sm:text-lg tracking-wide relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed ${product.isStockOut ? 'bg-gray-700 text-gray-300' : 'bg-gradient-to-r from-gold to-yellow-600 text-black'}`} whileHover={{ scale: product.isStockOut ? 1 : 1.02, y: product.isStockOut ? 0 : -2 }} whileTap={{ scale: product.isStockOut ? 1 : 0.98 }}>
+                  <motion.div className="flex items-center justify-center space-x-2" initial={false} animate={isAddingToCart ? { opacity: 0 } : { opacity: 1 }}>
+                    <ShoppingCart size={18} className="sm:w-5 sm:h-5" />
+                    <span>{product.isStockOut ? 'Out of Stock' : 'Add to Cart'}</span>
+                  </motion.div>
                   <AnimatePresence>{isAddingToCart && <motion.div className="absolute inset-0 flex items-center justify-center" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}><motion.div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-black border-t-transparent rounded-full" animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: 'linear' }} /></motion.div>}</AnimatePresence>
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  {!product.isStockOut && (
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transform -skew-x-12 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
+                  )}
                 </motion.button>
 
                 <div className="flex justify-center space-x-4 sm:space-x-6 text-[10px] sm:text-xs text-gray-400">

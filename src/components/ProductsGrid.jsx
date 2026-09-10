@@ -18,7 +18,6 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  // 3D tilt values
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const rotateX = useTransform(y, [-100, 100], [10, -10]);
@@ -44,6 +43,11 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
     >
       {/* Badges */}
       <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
+        {product.isStockOut && (
+          <span className="bg-gray-800 text-white px-3 py-1 text-xs font-semibold rounded border border-red-500">
+            OUT OF STOCK
+          </span>
+        )}
         {product.isNew && <span className="bg-gold text-black px-3 py-1 text-xs font-semibold rounded animate-pulse">NEW</span>}
         {product.isBestseller && <span className="bg-red-600 text-white px-3 py-1 text-xs font-semibold rounded">BESTSELLER</span>}
       </div>
@@ -60,7 +64,9 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
 
       {/* Image */}
       <div
-        className="w-full h-80 bg-gradient-to-br from-gold/10 to-purple-900/10 flex items-center justify-center relative overflow-hidden cursor-pointer"
+        className={`w-full h-80 flex items-center justify-center relative overflow-hidden cursor-pointer ${
+          product.isStockOut ? 'bg-gray-900/40 grayscale' : 'bg-gradient-to-br from-gold/10 to-purple-900/10'
+        }`}
         onClick={() => openProductModal(product)}
       >
         {product.mainImage && !imgError ? (
@@ -92,7 +98,12 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
           <div className="flex space-x-4">
             <button
               onClick={(e) => quickAddToCart(product, e)}
-              className="w-12 h-12 bg-gold text-black rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-300 shadow-lg"
+              disabled={product.isStockOut}
+              className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-300 shadow-lg ${
+                product.isStockOut
+                  ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
+                  : 'bg-gold text-black hover:scale-110'
+              }`}
             >
               <ShoppingCart size={20} />
             </button>
@@ -113,10 +124,19 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
         <p className="text-gold text-2xl font-light mb-4 tracking-wide">From ৳{product.basePrice || 0}</p>
         <button
           onClick={(e) => quickAddToCart(product, e)}
-          className="w-full bg-transparent border border-gold/30 text-white py-3 px-6 text-sm tracking-wider uppercase font-light hover:bg-gold hover:text-black transition-all duration-300 relative overflow-hidden group"
+          disabled={product.isStockOut}
+          className={`w-full py-3 px-6 text-sm tracking-wider uppercase font-light transition-all duration-300 relative overflow-hidden group ${
+            product.isStockOut
+              ? 'bg-gray-800 text-gray-400 border border-gray-600 cursor-not-allowed'
+              : 'bg-transparent border border-gold/30 text-white hover:bg-gold hover:text-black'
+          }`}
         >
-          <span className="relative z-10">Quick Add to Cart</span>
-          <div className="absolute inset-0 bg-gold transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
+          <span className="relative z-10">
+            {product.isStockOut ? 'Out of Stock' : 'Quick Add to Cart'}
+          </span>
+          {!product.isStockOut && (
+            <div className="absolute inset-0 bg-gold transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
+          )}
         </button>
       </div>
     </motion.div>
@@ -177,6 +197,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
             bestFor: p.bestFor || ['all'],
             isNew,
             isBestseller: p.isBestseller || false,
+            isStockOut: p.isStockOut || false,
             images: p.images || [],
             mainImage,
             backendData: p,
@@ -196,6 +217,7 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
 
   const quickAddToCart = useCallback((product, event) => {
     event?.stopPropagation();
+    if (product.isStockOut) return;
     const sizes = product.sizes || [];
     if (sizes.length === 0) return;
     const sorted = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
