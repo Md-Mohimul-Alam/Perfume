@@ -18,7 +18,6 @@ export const CartProvider = ({ children }) => {
     if (saved) {
       try {
         setCart(JSON.parse(saved));
-        console.log('📦 Cart loaded from localStorage:', JSON.parse(saved));
       } catch (_) {
         // ignore
       }
@@ -27,12 +26,9 @@ export const CartProvider = ({ children }) => {
 
   useEffect(() => {
     localStorage.setItem('storeCart', JSON.stringify(cart));
-    console.log('💾 Cart saved:', cart);
   }, [cart]);
 
   const addToCart = useCallback((product, size, quantity = 1) => {
-    console.log('🛒 Adding to cart:', { product, size, quantity });
-
     if (!size || typeof size.sellingPrice !== 'number' || size.sellingPrice <= 0) {
       console.warn('❌ Invalid size or missing sellingPrice');
       return;
@@ -60,10 +56,8 @@ export const CartProvider = ({ children }) => {
           ...updated[existingIndex],
           quantity: updated[existingIndex].quantity + quantity,
         };
-        console.log('🔄 Updated existing item:', updated[existingIndex]);
         return updated;
       }
-      console.log('➕ Added new item:', cartItem);
       return [...prev, cartItem];
     });
   }, []);
@@ -86,15 +80,13 @@ export const CartProvider = ({ children }) => {
     setCart([]);
   }, []);
 
-  const getCartTotal = useCallback(() => {
+  // ✅ Tax removed. Shipping is passed in by the caller (based on zone).
+  const getCartTotal = useCallback((shippingCharge = 0) => {
     const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const tax = subtotal * 0.10;
-    const shipping = subtotal > 100 ? 0 : 5;
     return {
       subtotal,
-      tax,
-      shipping,
-      total: subtotal + tax + shipping,
+      shipping: shippingCharge,
+      total: subtotal + shippingCharge,
     };
   }, [cart]);
 

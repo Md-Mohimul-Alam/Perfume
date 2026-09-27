@@ -4,12 +4,20 @@ import { useCart } from '../contexts/CartContext';
 import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
 import CheckoutModal from './CheckoutModal';
 
+const DELIVERY_ZONES = {
+  inside: { label: 'Inside Dhaka', charge: 70 },
+  outside: { label: 'Outside Dhaka', charge: 130 },
+};
+
 const CartSidebar = ({ isOpen, onClose }) => {
   const { cart, updateCartItemQuantity, removeFromCart, getCartTotal, getCartCount } = useCart();
-  const totals = getCartTotal();
-  const formatCurrency = (amount) => `৳${amount.toFixed(2)}`;
 
+  const [shippingZone, setShippingZone] = useState('inside');
   const [showCheckout, setShowCheckout] = useState(false);
+
+  const shippingCharge = DELIVERY_ZONES[shippingZone].charge;
+  const totals = getCartTotal(shippingCharge);
+  const formatCurrency = (amount) => `৳${amount.toFixed(2)}`;
 
   const handleCheckoutClick = () => {
     if (cart.length === 0) return;
@@ -17,7 +25,6 @@ const CartSidebar = ({ isOpen, onClose }) => {
   };
 
   const handleCheckoutSuccess = () => {
-    // Cart is cleared by CheckoutModal, close the sidebar too
     onClose();
   };
 
@@ -96,12 +103,52 @@ const CartSidebar = ({ isOpen, onClose }) => {
 
             {cart.length > 0 && (
               <div className="border-t border-gold/15 p-6">
-                <div className="space-y-2 mb-6">
-                  <div className="flex justify-between text-white text-sm"><span>Subtotal</span><span>{formatCurrency(totals.subtotal)}</span></div>
-                  <div className="flex justify-between text-white text-sm"><span>Tax (10%)</span><span>{formatCurrency(totals.tax)}</span></div>
-                  <div className="flex justify-between text-white text-sm"><span>Shipping</span><span className="text-green-400">{totals.shipping === 0 ? 'FREE' : formatCurrency(totals.shipping)}</span></div>
-                  <div className="flex justify-between text-white text-xl font-bold border-t border-gold/15 pt-2"><span>Total</span><span className="text-gold">{formatCurrency(totals.total)}</span></div>
+                {/* ✅ Delivery Zone Selector */}
+                <div className="mb-4">
+                  <p className="text-gold text-xs tracking-widest uppercase mb-3">Delivery Zone</p>
+                  <div className="space-y-2">
+                    {Object.entries(DELIVERY_ZONES).map(([key, zone]) => (
+                      <label
+                        key={key}
+                        className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${
+                          shippingZone === key
+                            ? 'border-gold bg-gold/10'
+                            : 'border-gold/20 hover:border-gold/40'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="shippingZone"
+                            value={key}
+                            checked={shippingZone === key}
+                            onChange={(e) => setShippingZone(e.target.value)}
+                            className="accent-yellow-500 w-4 h-4"
+                          />
+                          <span className="text-white text-sm">{zone.label}</span>
+                        </div>
+                        <span className="text-gold text-sm font-semibold">৳{zone.charge}</span>
+                      </label>
+                    ))}
+                  </div>
                 </div>
+
+                {/* Totals — tax line removed */}
+                <div className="space-y-2 mb-6">
+                  <div className="flex justify-between text-white text-sm">
+                    <span>Subtotal</span>
+                    <span>{formatCurrency(totals.subtotal)}</span>
+                  </div>
+                  <div className="flex justify-between text-white text-sm">
+                    <span>Shipping ({DELIVERY_ZONES[shippingZone].label})</span>
+                    <span>{formatCurrency(totals.shipping)}</span>
+                  </div>
+                  <div className="flex justify-between text-white text-xl font-bold border-t border-gold/15 pt-2">
+                    <span>Total</span>
+                    <span className="text-gold">{formatCurrency(totals.total)}</span>
+                  </div>
+                </div>
+
                 <button
                   onClick={handleCheckoutClick}
                   className="w-full bg-gold text-black py-4 text-lg font-bold tracking-wider uppercase hover:bg-gold/90 transition-all duration-300 shadow-lg shadow-gold/20 hover:shadow-gold/40"
@@ -114,11 +161,14 @@ const CartSidebar = ({ isOpen, onClose }) => {
         )}
       </AnimatePresence>
 
-      {/* Checkout modal */}
+      {/* Checkout modal — pass shipping zone + charge */}
       <CheckoutModal
         isOpen={showCheckout}
         onClose={() => setShowCheckout(false)}
         onSuccess={handleCheckoutSuccess}
+        shippingZone={shippingZone}
+        shippingLabel={DELIVERY_ZONES[shippingZone].label}
+        shippingCharge={shippingCharge}
       />
     </>
   );

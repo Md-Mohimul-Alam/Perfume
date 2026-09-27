@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, User, Phone, MapPin, Building2, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 import API from '../api/axios';
 import { useCart } from '../contexts/CartContext';
 
-const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
+const CheckoutModal = ({
+  isOpen,
+  onClose,
+  onSuccess,
+  shippingZone = 'inside',
+  shippingLabel = 'Inside Dhaka',
+  shippingCharge = 70,
+}) => {
   const { cart, getCartTotal, clearCart } = useCart();
-  const totals = getCartTotal();
+  const totals = getCartTotal(shippingCharge);
 
   const [form, setForm] = useState({
     name: '',
@@ -17,6 +24,15 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(null);
+
+  // Pre-fill city based on zone
+  useEffect(() => {
+    if (!isOpen) return;
+    setForm(prev => ({
+      ...prev,
+      city: prev.city || (shippingZone === 'inside' ? 'Dhaka' : ''),
+    }));
+  }, [isOpen, shippingZone]);
 
   if (!isOpen) return null;
 
@@ -54,16 +70,17 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
           city: form.city.trim(),
         },
         items: cart.map((item) => ({
-          product: item.productId,        // MongoDB Product _id
+          product: item.productId,
           name: item.name,
           sizeMl: item.size,
           quantity: item.quantity,
           unitPrice: item.price,
         })),
         subtotal: totals.subtotal,
-        tax: totals.tax,
-        shipping: totals.shipping,
+        tax: 0,                              // ✅ no tax
+        shipping: shippingCharge,            // ✅ from zone
         totalAmount: totals.total,
+        notes: `Delivery: ${shippingLabel}`,
       };
 
       const { data } = await API.post('/orders', payload);
@@ -73,10 +90,8 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
         total: totals.total,
       });
 
-      // Clear the cart
       clearCart();
 
-      // Auto close after 4s
       setTimeout(() => {
         if (onSuccess) onSuccess(data.order);
         onClose();
@@ -90,7 +105,6 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -98,11 +112,10 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
         onClick={!loading && !success ? onClose : undefined}
       />
 
-      {/* Modal */}
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="relative w-full max-w-lg bg-gradient-to-br from-gray-900 via-black to-gray-800 border border-gold/30 rounded-2xl shadow-2xl shadow-gold/20 overflow-hidden"
+        className="relative w-full max-w-lg bg-gradient-to-br from-gray-900 via-black to-gray-800 border border-gold/30 rounded-2xl shadow-2xl shadow-gold/20 overflow-hidden max-h-[95vh] overflow-y-auto"
       >
         <button
           onClick={onClose}
@@ -112,7 +125,6 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
           <X size={20} />
         </button>
 
-        {/* Header */}
         <div className="bg-gradient-to-r from-gold/10 via-gold/5 to-transparent border-b border-gold/20 p-6">
           <h2 className="font-display text-2xl text-white font-light tracking-widest uppercase">
             Complete Your Order
@@ -122,7 +134,6 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
           </p>
         </div>
 
-        {/* Body */}
         <div className="p-6">
           {success ? (
             <motion.div
@@ -217,17 +228,17 @@ const CheckoutModal = ({ isOpen, onClose, onSuccess }) => {
                 </div>
               </div>
 
-              {/* Order Summary */}
+              {/* Order Summary — no tax line */}
               <div className="bg-black/40 border border-gold/15 rounded-lg p-4 mt-6">
                 <p className="text-gold text-xs tracking-widest uppercase mb-3">Order Summary</p>
                 <div className="space-y-1.5 text-sm">
-                  <div className="flex justify-between text-gray-400"><span>Subtotal</span><span>৳{totals.subtotal.toFixed(2)}</span></div>
-                  <div className="flex justify-between text-gray-400"><span>Tax (10%)</span><span>৳{totals.tax.toFixed(2)}</span></div>
                   <div className="flex justify-between text-gray-400">
-                    <span>Shipping</span>
-                    <span className={totals.shipping === 0 ? 'text-green-400' : ''}>
-                      {totals.shipping === 0 ? 'FREE' : `৳${totals.shipping.toFixed(2)}`}
-                    </span>
+                    <span>Subtotal</span>
+                    <span>৳{totals.subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-gray-400">
+                    <span>Shipping ({shippingLabel})</span>
+                    <span>৳{shippingCharge.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between text-white text-lg font-bold border-t border-gold/20 pt-2 mt-2">
                     <span>Total</span>
