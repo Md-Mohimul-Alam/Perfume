@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Facebook, Instagram, Twitter, Linkedin, CreditCard } from 'lucide-react';
+import { Facebook, Instagram, MessageCircle } from 'lucide-react';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -23,14 +23,11 @@ const Footer = () => {
   const socialLinks = [
     { icon: Instagram, href: 'https://instagram.com/luxe_bd', label: 'Instagram' },
     { icon: Facebook, href: 'https://facebook.com/luxe.perfumers', label: 'Facebook' },
-    { icon: Twitter, href: 'https://twitter.com/luxe_perfumes', label: 'Twitter' },
-    { icon: Linkedin, href: 'https://linkedin.com/company/luxe', label: 'LinkedIn' }
+    { icon: MessageCircle, href: 'https://wa.me/8801322004276', label: 'WhatsApp' },
   ];
 
   const quickLinks = [
     { name: 'Contact', href: '/contact' },
-    { name: 'Privacy', href: '/privacy' },
-    { name: 'Terms', href: '/terms' },
     { name: 'Shipping', href: '/shipping' }
   ];
 
