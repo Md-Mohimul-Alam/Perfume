@@ -2,22 +2,15 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { Heart, ShoppingCart, Eye, ChevronDown } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
-import API from '../api/axios';
 
 const productEmojis = { perfume: '🌸', oil: '💧' };
-
-const normalizeImageUrl = (url) => {
-  if (!url) return null;
-  if (url.startsWith('http://') || url.startsWith('https://')) return url;
-  const baseUrl = import.meta.env.VITE_API_URL || 'https://perfume-stock-management-system.onrender.com';
-  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
-};
 
 const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProductModal, quickAddToCart }) => {
   const isInWishlist = wishlist.includes(product.id);
   const [imgError, setImgError] = useState(false);
   const [imgLoaded, setImgLoaded] = useState(false);
 
+  // 3D tilt values
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const rotateX = useTransform(y, [-100, 100], [10, -10]);
@@ -58,6 +51,7 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
         className={`absolute top-4 left-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
           isInWishlist ? 'text-red-500 scale-110' : 'text-white hover:scale-110 hover:text-red-400'
         }`}
+        aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
       >
         <Heart size={20} fill={isInWishlist ? 'currentColor' : 'none'} />
       </button>
@@ -104,12 +98,14 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
                   ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
                   : 'bg-gold text-black hover:scale-110'
               }`}
+              aria-label="Quick add to cart"
             >
               <ShoppingCart size={20} />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); openProductModal(product); }}
               className="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-300 shadow-lg"
+              aria-label="View details"
             >
               <Eye size={20} />
             </button>
@@ -144,15 +140,22 @@ const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProduct
 });
 ProductCard.displayName = 'ProductCard';
 
-const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+// ============================================================
+// Main Grid — receives products + loading from parent (App.jsx)
+// ============================================================
+const ProductsGrid = ({
+  products = [],
+  loading = false,
+  wishlist = [],
+  toggleWishlist,
+  openProductModal,
+}) => {
   const [currentFilter, setCurrentFilter] = useState('all');
   const [visibleCount, setVisibleCount] = useState(20);
   const { addToCart } = useCart();
 
-  const getInitialCount = useCallback(() => window.innerWidth < 768 ? 10 : 20, []);
+  const getInitialCount = useCallback(() => (window.innerWidth < 768 ? 10 : 20), []);
+
   useEffect(() => {
     const updateCount = () => setVisibleCount(getInitialCount());
     updateCount();
@@ -160,111 +163,108 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
     return () => window.removeEventListener('resize', updateCount);
   }, [getInitialCount]);
 
-  const fetchProducts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const response = await API.get('/products?showOnClient=true&limit=10000');
-      let raw = [];
-      if (Array.isArray(response.data)) raw = response.data;
-      else if (Array.isArray(response.data.products)) raw = response.data.products;
-      else if (Array.isArray(response.data.data)) raw = response.data.data;
-      else if (Array.isArray(response.data.items)) raw = response.data.items;
+  // ---------- Quick add to cart (smallest size) ----------
+  const quickAddToCart = useCallback(
+    (product, event) => {
+      event?.stopPropagation();
+      if (product.isStockOut) return;
+      const sizes = product.sizes || [];
+      if (sizes.length === 0) return;
+      const sorted = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
+      const smallest = sorted[0];
+      if (smallest && smallest.sellingPrice) addToCart(product, smallest, 1);
+    },
+    [addToCart]
+  );
 
-      const transformed = raw
-        .filter((p) => p && p._id)
-        .map((p) => {
-          const isSpray = p.type === 'spray';
-          const category = isSpray ? 'perfume' : 'oil';
-          const validSizes = (p.sizes || []).filter((s) => s.sizeMl !== 3);
-          let basePrice = 0;
-          if (validSizes.length > 0) {
-            const prices = validSizes.map((s) => s.sellingPrice || 0);
-            basePrice = Math.min(...prices);
-          }
-          const notes = p.notes?.length > 0 ? p.notes : (p.blendComponents?.map(c => c.material?.name || '') || ['Premium']);
-          const isNew = p.createdAt && (new Date() - new Date(p.createdAt) < 30 * 24 * 60 * 60 * 1000);
-          let mainImage = null;
-          if (p.images && p.images.length > 0) mainImage = normalizeImageUrl(p.images[0]);
-          else if (validSizes.length > 0 && validSizes[0].image) mainImage = normalizeImageUrl(validSizes[0].image);
-          return {
-            id: p._id,
-            name: p.name,
-            category,
-            description: p.description || `${p.name} – ${p.sku}`,
-            basePrice,
-            notes,
-            intensity: p.intensity || (isSpray ? 'medium' : 'strong'),
-            bestFor: p.bestFor || ['all'],
-            isNew,
-            isBestseller: p.isBestseller || false,
-            isStockOut: p.isStockOut || false,
-            images: p.images || [],
-            mainImage,
-            backendData: p,
-            sizes: validSizes,
-          };
-        })
-        .filter((p) => p.sizes.length > 0);
-      setProducts(transformed);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to load products.');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchProducts(); }, [fetchProducts]);
-
-  const quickAddToCart = useCallback((product, event) => {
-    event?.stopPropagation();
-    if (product.isStockOut) return;
-    const sizes = product.sizes || [];
-    if (sizes.length === 0) return;
-    const sorted = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
-    const smallest = sorted[0];
-    if (smallest && smallest.sellingPrice) addToCart(product, smallest, 1);
-  }, [addToCart]);
-
+  // ---------- Filtering ----------
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
       switch (currentFilter) {
-        case 'perfume': return product.category === 'perfume';
-        case 'oil': return product.category === 'oil';
-        case 'new': return product.isNew;
-        case 'bestsellers': return product.isBestseller;
-        case 'bestseller-perfume': return product.isBestseller && product.category === 'perfume';
-        case 'bestseller-oil': return product.isBestseller && product.category === 'oil';
-        default: return true;
+        case 'perfume':
+          return product.category === 'perfume';
+        case 'oil':
+          return product.category === 'oil';
+        case 'new':
+          return product.isNew;
+        case 'bestsellers':
+          return product.isBestseller;
+        case 'bestseller-perfume':
+          return product.isBestseller && product.category === 'perfume';
+        case 'bestseller-oil':
+          return product.isBestseller && product.category === 'oil';
+        default:
+          return true;
       }
     });
   }, [products, currentFilter]);
 
-  const displayedProducts = useMemo(() => filteredProducts.slice(0, visibleCount), [filteredProducts, visibleCount]);
-  const loadMore = useCallback(() => setVisibleCount(filteredProducts.length), [filteredProducts.length]);
+  const displayedProducts = useMemo(
+    () => filteredProducts.slice(0, visibleCount),
+    [filteredProducts, visibleCount]
+  );
+
+  const loadMore = useCallback(
+    () => setVisibleCount(filteredProducts.length),
+    [filteredProducts.length]
+  );
+
   const hasMore = visibleCount < filteredProducts.length;
 
-  if (loading) return (
-    <section className="py-20 px-4 bg-black min-h-screen flex items-center justify-center">
-      <div className="text-center"><div className="w-16 h-16 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" /><p className="text-gray-400">Loading our collection...</p></div>
-    </section>
-  );
-  if (error) return (
-    <section className="py-20 px-4 bg-black min-h-screen flex items-center justify-center">
-      <div className="text-center"><p className="text-red-500 text-lg mb-4">{error}</p><button onClick={fetchProducts} className="px-6 py-3 border border-gold text-white hover:bg-gold hover:text-black transition-colors">Retry</button></div>
-    </section>
-  );
+  // ---------- Loading state ----------
+  if (loading) {
+    return (
+      <section className="py-20 px-4 bg-black min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-400">Loading our collection...</p>
+        </div>
+      </section>
+    );
+  }
+
+  // ---------- Empty state (no products from backend at all) ----------
+  if (products.length === 0) {
+    return (
+      <section id="shop" className="py-20 px-4 lg:px-16 bg-black min-h-screen flex items-center justify-center">
+        <div className="text-center text-gray-400">
+          <p className="text-6xl mb-4">🛒</p>
+          <p>No products available right now.</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-6 px-6 py-3 border border-gold text-white hover:bg-gold hover:text-black transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </section>
+    );
+  }
 
   return (
     <section id="shop" className="py-20 px-4 lg:px-16 bg-black relative overflow-hidden">
       <div className="absolute inset-0 bg-gradient-radial from-gold/5 via-transparent to-transparent animate-pulse" />
+
       <div className="max-w-7xl mx-auto relative z-10">
-        <motion.h2 className="font-display text-4xl lg:text-5xl text-center text-white mb-4 tracking-widest uppercase font-light gold-gradient" initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }}>
+        <motion.h2
+          className="font-display text-4xl lg:text-5xl text-center text-white mb-4 tracking-widest uppercase font-light gold-gradient"
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+        >
           Our Collection
         </motion.h2>
-        <motion.p className="text-center text-gray-400 text-lg mb-12 tracking-widest font-light" initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} transition={{ duration: 0.8, delay: 0.2 }}>
+
+        <motion.p
+          className="text-center text-gray-400 text-lg mb-12 tracking-widest font-light"
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+        >
           Discover our premium selection of fragrances and oils
         </motion.p>
 
+        {/* Filter Tabs */}
         <div className="flex flex-col items-center gap-4 mb-16">
           <div className="filter-tabs text-white flex flex-wrap justify-center gap-4">
             {[
@@ -274,12 +274,14 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
               { key: 'new', label: 'New Arrivals' },
               { key: 'bestsellers', label: 'Bestsellers' },
               { key: 'bestseller-perfume', label: 'Bestseller Perfume' },
-              { key: 'bestseller-oil', label: 'Bestseller Oil' }
+              { key: 'bestseller-oil', label: 'Bestseller Oil' },
             ].map((filter) => (
               <motion.button
                 key={filter.key}
                 className={`px-7 py-3 border border-gold/30 text-sm tracking-wider uppercase font-light transition-all duration-300 ${
-                  currentFilter === filter.key ? 'bg-gold text-black border-gold' : 'text-white hover:bg-gold/10 hover:border-gold/60'
+                  currentFilter === filter.key
+                    ? 'bg-gold text-black border-gold'
+                    : 'text-white hover:bg-gold/10 hover:border-gold/60'
                 }`}
                 onClick={() => setCurrentFilter(filter.key)}
                 whileTap={{ scale: 0.95 }}
@@ -288,14 +290,22 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
               </motion.button>
             ))}
           </div>
-          <p className="text-gray-400 text-sm">{filteredProducts.length} product{filteredProducts.length !== 1 && 's'} found</p>
+          <p className="text-gray-400 text-sm">
+            {filteredProducts.length} product{filteredProducts.length !== 1 && 's'} found
+          </p>
         </div>
 
+        {/* Products */}
         {displayedProducts.length === 0 ? (
           <div className="text-center text-gray-400 py-16">
             <p className="text-6xl mb-4">🛒</p>
             <p>No products found matching your criteria.</p>
-            <button onClick={() => setCurrentFilter('all')} className="mt-4 text-gold underline hover:text-gold/80">Show all products</button>
+            <button
+              onClick={() => setCurrentFilter('all')}
+              className="mt-4 text-gold underline hover:text-gold/80"
+            >
+              Show all products
+            </button>
           </div>
         ) : (
           <>
@@ -311,9 +321,13 @@ const ProductsGrid = ({ wishlist, toggleWishlist, openProductModal }) => {
                 />
               ))}
             </motion.div>
+
             {hasMore && (
               <div className="flex justify-center mt-12">
-                <button onClick={loadMore} className="flex items-center gap-2 px-8 py-4 border border-gold/50 text-gold hover:bg-gold hover:text-black transition-all duration-300 rounded-lg font-medium tracking-wide">
+                <button
+                  onClick={loadMore}
+                  className="flex items-center gap-2 px-8 py-4 border border-gold/50 text-gold hover:bg-gold hover:text-black transition-all duration-300 rounded-lg font-medium tracking-wide"
+                >
                   <span>Load More</span> <ChevronDown size={20} />
                 </button>
               </div>

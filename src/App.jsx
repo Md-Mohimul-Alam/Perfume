@@ -1,108 +1,253 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { CartProvider, useCart } from './contexts/CartContext';
+import API from './api/axios';
+
+// Components
 import Header from './components/Header';
 import Hero from './components/Hero';
-import AIFragranceFinder from './components/AIFragranceFinder';
-import Philosophy from './components/Philosophy';
-import ScentJourney from './components/ScentJourney';
-import ScentNotes from './components/ScentNotes';
-import PersonalizedSection from './components/PersonalizedSection';
-import SearchSection from './components/SearchSection';
+import EnhancedBackground from './components/EnhancedBackground';
+import FloatingParticles from './components/FloatingParticles';
 import ProductsGrid from './components/ProductsGrid';
+import ScentNotes from './components/ScentNotes';
+import AIFragranceFinder from './components/AIFragranceFinder';
 import Testimonials from './components/Testimonials';
 import About from './components/About';
+import Philosophy from './components/Philosophy';
+import PersonalizedSection from './components/PersonalizedSection';
+import SearchSection from './components/SearchSection';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
-import ProductModal from './components/ProductModal';
 import CartSidebar from './components/CartSidebar';
-import EnhancedBackground from './components/EnhancedBackground';
-import { CartProvider } from './contexts/CartContext';
-import './styles/globals.css';
+import WishlistSidebar from './components/WishlistSidebar';
+import ProductModal from './components/ProductModal';
 
-function App() {
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [isCartOpen, setIsCartOpen] = useState(false);
+// ---------- Helper: normalize image URL ----------
+const normalizeImageUrl = (url) => {
+  if (!url) return null;
+  if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  const baseUrl =
+    import.meta.env.VITE_API_URL ||
+    'https://perfume-stock-management-system.onrender.com';
+  return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+// ---------- Inner App (needs CartContext access) ----------
+const AppContent = () => {
+  const { addToCart } = useCart();
+
+  // ---------- Products (hoisted so Wishlist & Grid share data) ----------
+  const [productsList, setProductsList] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+
+  // ---------- Wishlist ----------
   const [wishlist, setWishlist] = useState([]);
-  const cursorRef = useRef(null);
 
-  // Custom cursor
-  useEffect(() => {
-    const moveCursor = (e) => {
-      if (cursorRef.current) {
-        cursorRef.current.style.left = e.clientX + 'px';
-        cursorRef.current.style.top = e.clientY + 'px';
-      }
-    };
-    window.addEventListener('mousemove', moveCursor);
-    return () => window.removeEventListener('mousemove', moveCursor);
-  }, []);
+  // ---------- Sidebar / Modal state ----------
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isWishlistOpen, setIsWishlistOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
 
+  // ============================================================
+  // Load wishlist from localStorage (once)
+  // ============================================================
   useEffect(() => {
-    const savedWishlist = localStorage.getItem('luxeWishlist');
-    if (savedWishlist) {
-      setWishlist(JSON.parse(savedWishlist));
+    try {
+      const saved = localStorage.getItem('storeWishlist');
+      if (saved) setWishlist(JSON.parse(saved));
+    } catch (_) {
+      // ignore
     }
   }, []);
 
-  const toggleWishlist = (productId) => {
-    setWishlist(prev => {
-      const newWishlist = prev.includes(productId) 
-        ? prev.filter(id => id !== productId)
-        : [...prev, productId];
-      localStorage.setItem('luxeWishlist', JSON.stringify(newWishlist));
-      return newWishlist;
-    });
-  };
+  // Persist wishlist
+  useEffect(() => {
+    try {
+      localStorage.setItem('storeWishlist', JSON.stringify(wishlist));
+    } catch (_) {
+      // ignore
+    }
+  }, [wishlist]);
 
-  const openProductModal = (product) => {
+  // ============================================================
+  // Fetch products once, transform for the frontend
+  // ============================================================
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setProductsLoading(true);
+        const response = await API.get('/products?showOnClient=true&limit=10000');
+
+        let raw = [];
+        if (Array.isArray(response.data)) raw = response.data;
+        else if (Array.isArray(response.data.products)) raw = response.data.products;
+        else if (Array.isArray(response.data.data)) raw = response.data.data;
+        else if (Array.isArray(response.data.items)) raw = response.data.items;
+
+        const transformed = raw
+          .filter((p) => p && p._id)
+          .map((p) => {
+            const isSpray = p.type === 'spray';
+            const category = isSpray ? 'perfume' : 'oil';
+            const validSizes = (p.sizes || []).filter((s) => s.sizeMl !== 3);
+
+            let basePrice = 0;
+            if (validSizes.length > 0) {
+              basePrice = Math.min(...validSizes.map((s) => s.sellingPrice || 0));
+            }
+
+            const notes =
+              p.notes?.length > 0
+                ? p.notes
+                : p.blendComponents?.map((c) => c.material?.name || '') || ['Premium'];
+
+            const isNew =
+              p.createdAt &&
+              Date.now() - new Date(p.createdAt).getTime() < 30 * 24 * 60 * 60 * 1000;
+
+            let mainImage = null;
+            if (p.images?.length > 0) mainImage = normalizeImageUrl(p.images[0]);
+            else if (validSizes[0]?.image) mainImage = normalizeImageUrl(validSizes[0].image);
+
+            return {
+              id: p._id,
+              name: p.name,
+              sku: p.sku,
+              category,
+              type: p.type,
+              description: p.description || `${p.name} – ${p.sku}`,
+              basePrice,
+              notes,
+              intensity: p.intensity || (isSpray ? 'medium' : 'strong'),
+              bestFor: p.bestFor || ['all'],
+              isNew,
+              isBestseller: p.isBestseller || false,
+              isStockOut: p.isStockOut || false,
+              images: p.images || [],
+              mainImage,
+              backendData: p,
+              sizes: validSizes,
+            };
+          })
+          .filter((p) => p.sizes.length > 0);
+
+        setProductsList(transformed);
+      } catch (err) {
+        console.error('Product fetch error:', err);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+    fetchProducts();
+  }, []);
+
+  // ============================================================
+  // Wishlist handlers
+  // ============================================================
+  const toggleWishlist = useCallback((productId) => {
+    setWishlist((prev) =>
+      prev.includes(productId)
+        ? prev.filter((id) => id !== productId)
+        : [...prev, productId]
+    );
+  }, []);
+
+  const removeFromWishlist = useCallback((productId) => {
+    setWishlist((prev) => prev.filter((id) => id !== productId));
+  }, []);
+
+  // ============================================================
+  // Modal handlers
+  // ============================================================
+  const openProductModal = useCallback((product) => {
+    // Accept both a raw product object and a product with `backendData`
     setSelectedProduct(product);
-  };
+  }, []);
 
-  const closeProductModal = () => {
+  const closeProductModal = useCallback(() => {
     setSelectedProduct(null);
-  };
+  }, []);
 
-  const toggleCart = () => {
-    setIsCartOpen(!isCartOpen);
-  };
+  // ============================================================
+  // Quick-add from Wishlist sidebar
+  // ============================================================
+  const handleWishlistQuickAdd = useCallback(
+    (product) => {
+      if (!product || product.isStockOut) return;
+      const sizes = product.sizes || [];
+      if (sizes.length === 0) return;
+      const smallest = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl)[0];
+      if (smallest) addToCart(product, smallest, 1);
+    },
+    [addToCart]
+  );
 
   return (
-    <CartProvider>
-      <div className="App">
-        <div ref={cursorRef} className="cursor-dot" />
-        <EnhancedBackground />
-        
-        <Header toggleCart={toggleCart} />
+    <div className="relative min-h-screen bg-black text-white overflow-x-hidden">
+      {/* Background layers */}
+      <EnhancedBackground />
+      <FloatingParticles count={30} />
+
+      {/* Header (with wishlist + cart buttons) */}
+      <Header
+        toggleCart={() => setIsCartOpen(true)}
+        wishlist={wishlist}
+        onWishlistClick={() => setIsWishlistOpen(true)}
+      />
+
+      {/* Main content */}
+      <main className="relative z-10">
         <Hero />
-        <ScentNotes />
-        <SearchSection />
-        <ProductsGrid 
+        <ProductsGrid
+          products={productsList}
+          loading={productsLoading}
           wishlist={wishlist}
           toggleWishlist={toggleWishlist}
           openProductModal={openProductModal}
         />
+        <SearchSection />
+        <ScentNotes />
         <AIFragranceFinder openProductModal={openProductModal} />
-        <Philosophy />
-        <PersonalizedSection />
         <Testimonials />
         <About />
+        <Philosophy />
+        <PersonalizedSection />
         <Contact />
-        <Footer />
+      </main>
 
-        {/* Modals */}
-        {selectedProduct && (
-          <ProductModal
-            product={selectedProduct}
-            onClose={closeProductModal}
-          />
-        )}
+      <Footer />
 
-        <CartSidebar 
-          isOpen={isCartOpen} 
-          onClose={toggleCart}
+      {/* Cart slide-in */}
+      <CartSidebar isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} />
+
+      {/* Wishlist slide-in */}
+      <WishlistSidebar
+        isOpen={isWishlistOpen}
+        onClose={() => setIsWishlistOpen(false)}
+        wishlist={wishlist}
+        products={productsList}
+        onRemove={removeFromWishlist}
+        onViewProduct={openProductModal}
+        onAddToCart={handleWishlistQuickAdd}
+      />
+
+      {/* Product details modal */}
+      {selectedProduct && (
+        <ProductModal
+          product={selectedProduct}
+          onClose={closeProductModal}
         />
-      </div>
+      )}
+    </div>
+  );
+};
+
+// ---------- Root App (with CartProvider) ----------
+const App = () => {
+  return (
+    <CartProvider>
+      <AppContent />
     </CartProvider>
   );
-}
+};
 
 export default App;

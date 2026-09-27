@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { Heart, ShoppingBag } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 
-const Header = ({ toggleCart }) => {
+const Header = ({ toggleCart, wishlist = [], onWishlistClick }) => {
   const { getCartCount } = useCart();
   const [isScrolled, setIsScrolled] = useState(false);
 
@@ -15,6 +16,8 @@ const Header = ({ toggleCart }) => {
     handleScroll();
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const wishlistCount = wishlist?.length || 0;
 
   return (
     <motion.header
@@ -62,37 +65,67 @@ const Header = ({ toggleCart }) => {
           </ul>
         </nav>
 
-        <motion.button
-          className="cart-btn flex items-center space-x-2 bg-transparent border border-gold text-white px-6 py-3 text-sm tracking-wider uppercase font-light relative overflow-hidden group"
-          onClick={toggleCart}
-          whileHover="hover"
-          whileTap={{ scale: 0.95 }}
-        >
-          <motion.span
-            variants={{ hover: { x: -100 } }}
-            transition={{ duration: 0.4 }}
-            className="relative z-10 flex items-center space-x-2"
+        {/* Right side: Wishlist + Cart */}
+        <div className="flex items-center gap-3">
+          {/* ✅ Wishlist Button */}
+          <motion.button
+            onClick={onWishlistClick}
+            className="relative w-12 h-12 rounded-full border border-gold/40 text-white flex items-center justify-center hover:bg-gold hover:text-black transition-all duration-300 group"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label="Open wishlist"
           >
-            <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="8.5" cy="17.5" r="1.5"/>
-              <circle cx="15.5" cy="17.5" r="1.5"/>
-              <path d="M3 3h2.5l2.67 13.39A2 2 0 0 0 10.08 18.5h7.66a2 2 0 0 0 1.91-1.39L21 7.5H6.16"/>
-            </svg>
-            <span>CART</span>
-          </motion.span>
+            <Heart
+              size={20}
+              className={wishlistCount > 0 ? 'fill-current' : ''}
+              strokeWidth={2}
+            />
 
-          <AnimatePresence>
+            {/* Badge */}
+            <AnimatePresence>
+              {wishlistCount > 0 && (
+                <motion.span
+                  key={wishlistCount}
+                  initial={{ scale: 0.5, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 1.5, opacity: 0 }}
+                  className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-5 h-5 rounded-full flex items-center justify-center font-semibold border border-black/40"
+                >
+                  {wishlistCount > 9 ? '9+' : wishlistCount}
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </motion.button>
+
+          {/* Cart Button (existing) */}
+          <motion.button
+            className="cart-btn flex items-center space-x-2 bg-transparent border border-gold text-white px-6 py-3 text-sm tracking-wider uppercase font-light relative overflow-hidden group"
+            onClick={toggleCart}
+            whileHover="hover"
+            whileTap={{ scale: 0.95 }}
+          >
             <motion.span
-              key={getCartCount()}
-              initial={{ scale: 0.5, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 1.5, opacity: 0 }}
-              className="cart-count bg-gold text-black text-xs w-5 h-5 rounded-full flex items-center justify-center font-semibold"
+              variants={{ hover: { x: -100 } }}
+              transition={{ duration: 0.4 }}
+              className="relative z-10 flex items-center space-x-2"
             >
-              {getCartCount()}
+              <ShoppingBag size={20} />
+              <span>CART</span>
             </motion.span>
-          </AnimatePresence>
-        </motion.button>
+
+            <AnimatePresence>
+              <motion.span
+                key={getCartCount()}
+                initial={{ scale: 0.5, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 1.5, opacity: 0 }}
+                className="cart-count bg-gold text-black text-xs w-5 h-5 rounded-full flex items-center justify-center font-semibold"
+              >
+                {getCartCount()}
+              </motion.span>
+            </AnimatePresence>
+          </motion.button>
+        </div>
       </div>
     </motion.header>
   );
