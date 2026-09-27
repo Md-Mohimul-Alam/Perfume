@@ -1,12 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../contexts/CartContext';
 import { X, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react';
+import CheckoutModal from './CheckoutModal';
 
 const CartSidebar = ({ isOpen, onClose }) => {
   const { cart, updateCartItemQuantity, removeFromCart, getCartTotal, getCartCount } = useCart();
   const totals = getCartTotal();
   const formatCurrency = (amount) => `৳${amount.toFixed(2)}`;
+
+  const [showCheckout, setShowCheckout] = useState(false);
+
+  const handleCheckoutClick = () => {
+    if (cart.length === 0) return;
+    setShowCheckout(true);
+  };
+
+  const handleCheckoutSuccess = () => {
+    // Cart is cleared by CheckoutModal, close the sidebar too
+    onClose();
+  };
 
   return (
     <>
@@ -89,7 +102,10 @@ const CartSidebar = ({ isOpen, onClose }) => {
                   <div className="flex justify-between text-white text-sm"><span>Shipping</span><span className="text-green-400">{totals.shipping === 0 ? 'FREE' : formatCurrency(totals.shipping)}</span></div>
                   <div className="flex justify-between text-white text-xl font-bold border-t border-gold/15 pt-2"><span>Total</span><span className="text-gold">{formatCurrency(totals.total)}</span></div>
                 </div>
-                <button onClick={() => alert('Proceeding to checkout...')} className="w-full bg-gold text-black py-4 text-lg font-bold tracking-wider uppercase hover:bg-gold/90 transition-all duration-300 shadow-lg shadow-gold/20 hover:shadow-gold/40">
+                <button
+                  onClick={handleCheckoutClick}
+                  className="w-full bg-gold text-black py-4 text-lg font-bold tracking-wider uppercase hover:bg-gold/90 transition-all duration-300 shadow-lg shadow-gold/20 hover:shadow-gold/40"
+                >
                   Proceed to Checkout
                 </button>
               </div>
@@ -97,6 +113,13 @@ const CartSidebar = ({ isOpen, onClose }) => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Checkout modal */}
+      <CheckoutModal
+        isOpen={showCheckout}
+        onClose={() => setShowCheckout(false)}
+        onSuccess={handleCheckoutSuccess}
+      />
     </>
   );
 };
