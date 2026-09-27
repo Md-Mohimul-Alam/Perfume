@@ -14,13 +14,73 @@
   --luxe-gold-light: rgba(212, 175, 55, 0.2);
 }
 
+/* =============================================
+   BASE RESET + CURSOR RULES
+   ============================================= */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  cursor: none; /* custom cursor */
 }
 
+html,
+body {
+  cursor: default;
+}
+
+/* Clickable elements → pointer */
+button:not(:disabled),
+a,
+[role="button"],
+[role="link"],
+label[for],
+summary,
+input[type="radio"],
+input[type="checkbox"],
+input[type="file"],
+input[type="submit"],
+input[type="button"],
+input[type="reset"],
+select,
+option,
+details > summary {
+  cursor: pointer;
+}
+
+/* Disabled controls → not-allowed */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled="true"],
+.disabled {
+  cursor: not-allowed !important;
+}
+
+/* Text fields → text cursor */
+input[type="text"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+input[type="search"],
+input[type="password"],
+input[type="url"],
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+textarea {
+  cursor: text;
+}
+
+/* Non-clickable containers stay default */
+.cursor-default,
+[data-no-pointer] {
+  cursor: default !important;
+}
+
+/* =============================================
+   GLOBAL STYLES
+   ============================================= */
 html {
   scroll-behavior: smooth;
 }
@@ -36,28 +96,10 @@ body {
   line-height: 1.6;
 }
 
-/* Custom cursor */
-.cursor-dot {
-  position: fixed;
-  width: 6px;
-  height: 6px;
-  background: var(--luxe-gold);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 9999;
-  transform: translate(-50%, -50%);
-  transition: width 0.2s, height 0.2s, background 0.2s;
-}
-.cursor-dot.active {
-  width: 12px;
-  height: 12px;
-  background: var(--luxe-white);
-  mix-blend-mode: difference;
-}
-
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 4px;
+  height: 4px;
 }
 ::-webkit-scrollbar-track {
   background: rgba(212, 175, 55, 0.05);
@@ -65,6 +107,9 @@ body {
 ::-webkit-scrollbar-thumb {
   background: var(--luxe-gold);
   border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #e8c84f;
 }
 
 /* Luxury button */
@@ -156,7 +201,7 @@ body {
   50% { transform: translateY(-5px) scale(1.02); }
 }
 
-/* Utility */
+/* Utility classes */
 .font-display { font-family: 'Playfair Display', serif; }
 .tracking-\[0\.5em\] { letter-spacing: 0.5em; }
 .bg-gold { background-color: var(--luxe-gold); }
@@ -165,6 +210,9 @@ body {
 
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
   html { scroll-behavior: auto; }
 }
