@@ -12,9 +12,21 @@ const toList = (value) => {
 };
 const normalizeImageUrl = (url) => {
   if (!url) return null;
+  if (typeof url === 'object') url = url.url || url.secure_url || url.path || url.src;
+  if (typeof url !== 'string' || !url.trim()) return null;
+  url = url.trim();
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
+  if (url.startsWith('data:') || url.startsWith('blob:')) return url;
   const baseUrl = import.meta.env.VITE_API_URL || 'https://perfume-stock-management-system.onrender.com';
   return `${baseUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+const makeBottleFallback = (isRollOn) => {
+  const body = isRollOn
+    ? '<rect x="87" y="100" width="66" height="132" rx="18" fill="url(#glass)" stroke="#e9d9a6" stroke-opacity=".7"/><rect x="104" y="73" width="32" height="32" rx="5" fill="url(#cap)"/>'
+    : '<rect x="76" y="74" width="88" height="158" rx="18" fill="url(#glass)" stroke="#e9d9a6" stroke-opacity=".7"/><rect x="99" y="43" width="42" height="35" rx="5" fill="url(#cap)"/><rect x="111" y="33" width="18" height="13" rx="3" fill="#dac28b"/>';
+  const kind = isRollOn ? 'ROLL-ON' : 'EAU DE PARFUM';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="300" viewBox="0 0 240 300"><defs><radialGradient id="bg"><stop stop-color="#332711"/><stop offset="1" stop-color="#090909"/></radialGradient><linearGradient id="glass" x1="0" x2="1"><stop stop-color="#c9a64d" stop-opacity=".6"/><stop offset=".45" stop-color="#f5e6bb" stop-opacity=".14"/><stop offset="1" stop-color="#9d7623" stop-opacity=".5"/></linearGradient><linearGradient id="cap" x1="0" x2="1"><stop stop-color="#eee0b8"/><stop offset="1" stop-color="#8e6c2c"/></linearGradient></defs><rect width="240" height="300" rx="22" fill="url(#bg)"/><circle cx="120" cy="150" r="94" fill="#d4af37" opacity=".07"/>${body}<rect x="84" y="150" width="72" height="43" rx="3" fill="#111" fill-opacity=".8" stroke="#d4af37" stroke-opacity=".55"/><text x="120" y="169" text-anchor="middle" fill="#e4c66d" font-family="Georgia,serif" font-size="12" letter-spacing="3">LUXE</text><text x="120" y="183" text-anchor="middle" fill="#eee" font-family="Arial,sans-serif" font-size="6" letter-spacing="1.3">${kind}</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
 const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
@@ -70,7 +82,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       isNew,
       isBestseller: backendProduct.isBestseller || false,
       isStockOut: backendProduct.isStockOut || false,
-      images: backendProduct.images || [],
+      images: [backendProduct.mainImage, backendProduct.imageUrl, backendProduct.image, ...(Array.isArray(backendProduct.images) ? backendProduct.images : [backendProduct.images])].filter(Boolean),
       backendData: backendProduct,
       sizes: validSizes,
     };
@@ -105,6 +117,9 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     setImgError(false);
     setImgLoading(!!imageUrl);
   }, [selectedSize, product.images]);
+
+  const fallbackImage = makeBottleFallback(product.category === 'oil');
+  const displayedImage = !imgError && currentImage ? currentImage : fallbackImage;
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -161,14 +176,10 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
               {/* Left */}
               <div className="space-y-4 sm:space-y-6">
                 <motion.div className={`relative h-48 sm:h-56 md:h-64 rounded-xl border border-gold/20 flex items-center justify-center overflow-hidden ${product.isStockOut ? 'bg-gray-900/40 grayscale' : 'bg-gradient-to-br from-gold/10 to-purple-900/10'}`} whileHover={{ scale: product.isStockOut ? 1 : 1.02 }}>
-                  {currentImage && !imgError ? (
-                    <>
-                      <img src={currentImage} alt={product.name} className={`w-full h-full object-contain p-2 transition-opacity duration-300 ${imgLoading ? 'opacity-0' : 'opacity-100'}`} onLoad={() => setImgLoading(false)} onError={() => { setImgError(true); setImgLoading(false); }} />
-                      {imgLoading && <div className="absolute inset-0 flex items-center justify-center"><div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" /></div>}
-                    </>
-                  ) : (
-                    <motion.div className="text-6xl sm:text-7xl md:text-8xl" animate={{ y: [0, -10, 0], rotateY: [0, 5, 0] }} transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}>{productEmojis[product.category]}</motion.div>
-                  )}
+                  <>
+                    <img src={displayedImage} alt={`${product.name} ${product.category === 'oil' ? 'roll-on' : 'spray'} bottle`} className={`w-full h-full object-contain p-2 transition-opacity duration-300 ${imgLoading ? 'opacity-0' : 'opacity-100'}`} onLoad={() => setImgLoading(false)} onError={() => { setImgError(true); setImgLoading(false); }} />
+                    {imgLoading && <div className="absolute inset-0 flex items-center justify-center"><div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" /></div>}
+                  </>
                   {product.isBestseller && <motion.div className="absolute top-2 sm:top-4 left-2 sm:left-4 bg-gradient-to-r from-gold to-yellow-600 text-black px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold flex items-center space-x-1" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.5 }}><Award size={10} className="sm:w-3 sm:h-3" /><span>BESTSELLER</span></motion.div>}
                   {product.isNew && <motion.div className="absolute top-2 sm:top-4 right-2 sm:right-4 bg-gradient-to-r from-green-400 to-emerald-600 text-white px-2 sm:px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold" initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.7 }}>NEW</motion.div>}
                 </motion.div>

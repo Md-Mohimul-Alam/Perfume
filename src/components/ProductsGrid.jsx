@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Search, ShoppingCart, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { Heart, Search, ShoppingCart, SlidersHorizontal } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 
 const FILTERS = [
@@ -40,8 +40,39 @@ const normalizeProduct = (product) => {
   };
 };
 
+const getImageValue = (value) => {
+  if (typeof value === 'string') return value.trim();
+  if (value && typeof value === 'object') return value.url || value.secure_url || value.path || value.src || '';
+  return '';
+};
+
+const resolveProductImage = (product) => {
+  const sizeImage = product.sizes?.map((size) => getImageValue(size.image)).find(Boolean);
+  const rawImage = getImageValue(product.mainImage)
+    || getImageValue(product.imageUrl)
+    || getImageValue(product.image)
+    || (Array.isArray(product.images) ? getImageValue(product.images[0]) : getImageValue(product.images))
+    || sizeImage;
+  if (!rawImage) return '';
+  if (/^(https?:|data:|blob:)/i.test(rawImage)) return rawImage;
+  const apiBase = (import.meta.env.VITE_API_URL || 'https://perfume-stock-management-system.onrender.com').replace(/\/$/, '');
+  return `${apiBase}${rawImage.startsWith('/') ? '' : '/'}${rawImage}`;
+};
+
+const makeBottleFallback = (isRollOn) => {
+  const bottle = isRollOn
+    ? '<rect x="87" y="100" width="66" height="132" rx="18" fill="url(#glass)" stroke="#e9d9a6" stroke-opacity=".7"/><rect x="104" y="73" width="32" height="32" rx="5" fill="url(#cap)"/>'
+    : '<rect x="76" y="74" width="88" height="158" rx="18" fill="url(#glass)" stroke="#e9d9a6" stroke-opacity=".7"/><rect x="99" y="43" width="42" height="35" rx="5" fill="url(#cap)"/><rect x="111" y="33" width="18" height="13" rx="3" fill="#dac28b"/>';
+  const label = isRollOn ? 'ROLL-ON' : 'EAU DE PARFUM';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="300" viewBox="0 0 240 300"><defs><radialGradient id="bg"><stop stop-color="#332711"/><stop offset="1" stop-color="#090909"/></radialGradient><linearGradient id="glass" x1="0" x2="1"><stop stop-color="#c9a64d" stop-opacity=".6"/><stop offset=".45" stop-color="#f5e6bb" stop-opacity=".14"/><stop offset="1" stop-color="#9d7623" stop-opacity=".5"/></linearGradient><linearGradient id="cap" x1="0" x2="1"><stop stop-color="#eee0b8"/><stop offset="1" stop-color="#8e6c2c"/></linearGradient></defs><rect width="240" height="300" rx="22" fill="url(#bg)"/><circle cx="120" cy="150" r="94" fill="#d4af37" opacity=".07"/>${bottle}<rect x="84" y="150" width="72" height="43" rx="3" fill="#111" fill-opacity=".8" stroke="#d4af37" stroke-opacity=".55"/><text x="120" y="169" text-anchor="middle" fill="#e4c66d" font-family="Georgia,serif" font-size="12" letter-spacing="3">LUXE</text><text x="120" y="183" text-anchor="middle" fill="#eee" font-family="Arial,sans-serif" font-size="6" letter-spacing="1.3">${label}</text><text x="120" y="270" text-anchor="middle" fill="#cbb878" font-family="Arial,sans-serif" font-size="9" letter-spacing="3">FRAGRANCE</text></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
 const ProductCard = React.memo(({ product, isWishlisted, onToggleWishlist, onOpen, onQuickAdd }) => {
   const isRollOn = product.type === 'roll-on';
+  const [imageFailed, setImageFailed] = useState(false);
+  const imageUrl = resolveProductImage(product);
+  const displayedImage = !imageFailed && imageUrl ? imageUrl : makeBottleFallback(isRollOn);
   const availableSizes = product.sizes.filter((size) => Number(size.sellingPrice) > 0);
   const priceLabel = product.minPrice && product.maxPrice && product.minPrice !== product.maxPrice
     ? `৳${product.minPrice.toLocaleString()} – ৳${product.maxPrice.toLocaleString()}`
@@ -56,15 +87,7 @@ const ProductCard = React.memo(({ product, isWishlisted, onToggleWishlist, onOpe
     >
       <div className="relative flex h-64 cursor-pointer items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(212,175,55,0.14),transparent_66%)]" onClick={() => onOpen(product)}>
         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-gold/[0.06]" />
-        <div className={`relative flex items-center justify-center border border-white/30 bg-gradient-to-br from-white/25 to-white/[0.04] shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition duration-500 group-hover:scale-105 ${isRollOn ? 'h-36 w-20 rounded-[1.1rem]' : 'h-44 w-24 rounded-t-[1.3rem] rounded-b-2xl'}`}>
-          <div className="absolute -top-5 h-7 w-9 rounded-t-md border border-white/20 bg-gradient-to-b from-gray-300 to-gray-600" />
-          <div className="absolute inset-x-2 top-1/3 h-px bg-white/25" />
-          <div className="absolute inset-x-2 bottom-5 border-y border-gold/30 py-2 text-center">
-            <span className="block text-[9px] font-semibold tracking-[0.24em] text-gold">LUXE</span>
-            <span className="mt-1 block text-[7px] uppercase tracking-widest text-white/60">{isRollOn ? 'OIL' : 'PARFUM'}</span>
-          </div>
-          <span className="absolute bottom-1 right-2 text-white/50"><Sparkles size={12} /></span>
-        </div>
+        <img src={displayedImage} alt={`${product.name} ${isRollOn ? 'roll-on' : 'spray'} fragrance`} className="relative z-10 h-full w-full object-contain p-3 transition duration-500 group-hover:scale-105" loading="lazy" onError={() => setImageFailed(true)} />
 
         <span className="absolute left-4 top-4 rounded-full border border-gold/25 bg-black/55 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-gold backdrop-blur">
           {isRollOn ? 'Roll-on' : 'Spray'}
