@@ -1,13 +1,27 @@
 import React, { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Heart, Search, ShoppingCart, SlidersHorizontal } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Heart, Search, ShoppingCart, SlidersHorizontal, X, Sparkles, Eye, ChevronDown } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 
 const FILTERS = [
-  { key: 'all', label: 'All fragrances' },
+  { key: 'all', label: 'All' },
   { key: 'spray', label: 'Spray' },
   { key: 'roll-on', label: 'Roll-on' },
   { key: 'bestsellers', label: 'Bestsellers' },
+];
+
+const INTENSITIES = [
+  { value: 'all', label: 'Any intensity' },
+  { value: 'light', label: 'Light' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'strong', label: 'Strong' },
+];
+
+const SORTS = [
+  { value: 'featured', label: 'Featured' },
+  { value: 'price-low', label: 'Price ↑' },
+  { value: 'price-high', label: 'Price ↓' },
+  { value: 'name', label: 'A → Z' },
 ];
 
 const toList = (value) => {
@@ -68,13 +82,47 @@ const makeBottleFallback = (isRollOn) => {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 };
 
+// --------------------------------------------------
+// Skeleton card
+// --------------------------------------------------
+const SkeletonCard = () => (
+  <div className="relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+    <div className="flex h-64 items-center justify-center bg-white/[0.015]">
+      <div className="h-28 w-20 animate-pulse rounded-lg bg-white/[0.04]" />
+    </div>
+    <div className="space-y-3 p-5">
+      <div className="flex justify-between">
+        <div className="h-2.5 w-20 animate-pulse rounded bg-white/[0.05]" />
+        <div className="h-2.5 w-12 animate-pulse rounded bg-white/[0.05]" />
+      </div>
+      <div className="h-4 w-3/4 animate-pulse rounded bg-white/[0.06]" />
+      <div className="h-3 w-full animate-pulse rounded bg-white/[0.04]" />
+      <div className="h-3 w-2/3 animate-pulse rounded bg-white/[0.04]" />
+      <div className="flex items-end justify-between border-t border-white/[0.06] pt-4">
+        <div className="h-6 w-24 animate-pulse rounded bg-white/[0.06]" />
+        <div className="h-9 w-28 animate-pulse rounded-full bg-white/[0.05]" />
+      </div>
+    </div>
+  </div>
+);
+
+// --------------------------------------------------
+// Product card
+// --------------------------------------------------
 const ProductCard = React.memo(({ product, isWishlisted, onToggleWishlist, onOpen, onQuickAdd }) => {
   const isRollOn = product.type === 'roll-on';
   const [imageFailed, setImageFailed] = useState(false);
   const imageUrl = resolveProductImage(product);
+
+  if (!imageUrl && !imageFailed && typeof window !== 'undefined') {
+    // eslint-disable-next-line no-console
+    console.warn('[ProductImage] Missing image for', product.name, product.id || product._id);
+  }
+
   const displayedImage = !imageFailed && imageUrl ? imageUrl : makeBottleFallback(isRollOn);
   const availableSizes = product.sizes.filter((size) => Number(size.sellingPrice) > 0);
-  const priceLabel = product.minPrice && product.maxPrice && product.minPrice !== product.maxPrice
+  const hasRange = product.minPrice && product.maxPrice && product.minPrice !== product.maxPrice;
+  const priceLabel = hasRange
     ? `৳${product.minPrice.toLocaleString()} – ৳${product.maxPrice.toLocaleString()}`
     : `৳${(product.minPrice || product.basePrice || 0).toLocaleString()}`;
 
@@ -83,54 +131,130 @@ const ProductCard = React.memo(({ product, isWishlisted, onToggleWishlist, onOpe
       layout
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group relative overflow-hidden rounded-2xl border border-gold/15 bg-gradient-to-b from-white/[0.07] to-white/[0.02] transition duration-300 hover:-translate-y-1 hover:border-gold/40 hover:shadow-[0_18px_55px_rgba(212,175,55,0.12)]"
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      className="group relative flex flex-col overflow-hidden rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.04] to-white/[0.015] transition-all duration-500 hover:-translate-y-1.5 hover:border-gold/35 hover:shadow-[0_24px_70px_-20px_rgba(212,175,55,0.35)]"
     >
-      <div className="relative flex h-64 cursor-pointer items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(212,175,55,0.14),transparent_66%)]" onClick={() => onOpen(product)}>
-        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-gold/[0.06]" />
-        <img src={displayedImage} alt={`${product.name} ${isRollOn ? 'roll-on' : 'spray'} fragrance`} className="relative z-10 h-full w-full object-contain p-3 transition duration-500 group-hover:scale-105" loading="lazy" onError={() => setImageFailed(true)} />
+      <div
+        className="pointer-events-none absolute inset-x-0 -top-24 h-48 opacity-0 blur-3xl transition-opacity duration-700 group-hover:opacity-100"
+        style={{ background: 'radial-gradient(ellipse at center, rgba(212,175,55,0.18), transparent 65%)' }}
+      />
 
-        <span className="absolute left-4 top-4 rounded-full border border-gold/25 bg-black/55 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-gold backdrop-blur">
+      <div
+        className="relative flex h-64 cursor-pointer items-center justify-center overflow-hidden"
+        onClick={() => onOpen(product)}
+      >
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(212,175,55,0.10),transparent_65%)]" />
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-gold/[0.05]" />
+
+        <img
+          src={displayedImage}
+          alt={`${product.name} ${isRollOn ? 'roll-on' : 'spray'} fragrance`}
+          className="relative z-10 h-full w-full object-contain p-4 transition-transform duration-700 ease-out group-hover:scale-[1.06]"
+          loading="lazy"
+          onError={() => setImageFailed(true)}
+        />
+
+        <div className="pointer-events-none absolute inset-0 z-[15] bg-[radial-gradient(ellipse_at_center,transparent_55%,rgba(0,0,0,0.28))]" />
+
+        <span className="absolute left-4 top-4 z-20 rounded-full border border-gold/20 bg-black/60 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-gold/90 backdrop-blur-md">
           {isRollOn ? 'Roll-on' : 'Spray'}
         </span>
-        {product.isBestseller && <span className="absolute bottom-4 left-4 rounded-full bg-gold px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-black">Bestseller</span>}
+
+        {product.isBestseller && (
+          <span className="absolute bottom-4 left-4 z-20 flex items-center gap-1.5 rounded-full bg-gradient-to-r from-gold to-yellow-400 px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-black shadow-[0_4px_16px_rgba(212,175,55,0.35)]">
+            <Sparkles size={11} strokeWidth={2.5} />
+            Bestseller
+          </span>
+        )}
 
         <button
           type="button"
-          onClick={(event) => { event.stopPropagation(); onToggleWishlist(product.id); }}
-          className={`absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-black/55 backdrop-blur transition hover:scale-105 ${isWishlisted ? 'text-rose-400' : 'text-white hover:text-rose-300'}`}
-          aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
+          onClick={(event) => {
+            event.stopPropagation();
+            onToggleWishlist(product.id);
+          }}
+          className={`absolute right-4 top-4 z-20 grid h-10 w-10 place-items-center rounded-full border backdrop-blur-md transition-all duration-300 hover:scale-110 ${
+            isWishlisted
+              ? 'border-rose-400/30 bg-rose-500/15 text-rose-400 shadow-[0_4px_20px_rgba(244,63,94,0.25)]'
+              : 'border-white/15 bg-black/55 text-white hover:border-rose-300/40 hover:text-rose-300'
+          }`}
+          aria-label={
+            isWishlisted
+              ? `Remove ${product.name} from wishlist`
+              : `Add ${product.name} to wishlist`
+          }
         >
-          <Heart size={18} fill={isWishlisted ? 'currentColor' : 'none'} />
+          <Heart size={17} fill={isWishlisted ? 'currentColor' : 'none'} strokeWidth={2} />
         </button>
 
-        <button type="button" onClick={(event) => { event.stopPropagation(); onOpen(product); }} className="absolute inset-x-5 bottom-4 translate-y-3 rounded-full bg-white/95 py-2.5 text-xs font-medium uppercase tracking-[0.15em] text-black opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100">
-          View fragrance
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpen(product);
+          }}
+          className="absolute bottom-4 left-1/2 z-20 grid h-11 w-11 -translate-x-1/2 translate-y-3 place-items-center rounded-full bg-white/95 text-black opacity-0 shadow-[0_10px_28px_-8px_rgba(0,0,0,0.6)] backdrop-blur-sm transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100 hover:scale-110 hover:bg-white focus:translate-y-0 focus:opacity-100"
+          aria-label={`View ${product.name}`}
+        >
+          <Eye size={18} strokeWidth={2.25} />
         </button>
       </div>
 
-      <div className="p-5">
-        <div className="mb-2 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.17em] text-gray-400">
-          <span>{product.intensity || 'Signature'} intensity</span>
-          <span>{product.sizes.length} size{product.sizes.length === 1 ? '' : 's'}</span>
+      <div className="flex flex-1 flex-col p-5">
+        <div className="mb-2.5 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.17em] text-gray-500">
+          <span className="text-gold/70">{product.intensity || 'Signature'} intensity</span>
+          <span className="text-gray-500">
+            {product.sizes.length} size{product.sizes.length === 1 ? '' : 's'}
+          </span>
         </div>
-        <button type="button" onClick={() => onOpen(product)} className="line-clamp-1 text-left font-display text-lg text-white transition hover:text-gold">{product.name}</button>
-        <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-gray-400">{product.description || 'A carefully selected fragrance for your everyday signature.'}</p>
 
-        {!!product.notes.length && <div className="mt-3 flex min-h-6 flex-wrap gap-1.5">{product.notes.slice(0, 3).map((note) => <span key={note} className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] capitalize text-gray-300">{note}</span>)}</div>}
+        <button
+          type="button"
+          onClick={() => onOpen(product)}
+          className="line-clamp-1 text-left font-display text-lg tracking-wide text-white transition-colors duration-300 hover:text-gold"
+        >
+          {product.name}
+        </button>
 
-        <div className="mt-4 flex items-end justify-between gap-3 border-t border-white/10 pt-4">
-          <div>
-            <span className="block text-[10px] uppercase tracking-widest text-gray-500">Price</span>
-            <span className="mt-1 block text-lg font-medium text-gold">{priceLabel}</span>
+        <p className="mt-1.5 line-clamp-2 min-h-10 text-sm leading-5 text-gray-400/90">
+          {product.description || 'A carefully selected fragrance for your everyday signature.'}
+        </p>
+
+        {!!product.notes.length && (
+          <div className="mt-3 flex min-h-6 flex-wrap gap-1.5">
+            {product.notes.slice(0, 3).map((note) => (
+              <span
+                key={note}
+                className="rounded-full border border-white/[0.08] bg-white/[0.02] px-2.5 py-1 text-[10px] capitalize tracking-wide text-gray-300/90"
+              >
+                {note}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-auto flex items-end justify-between gap-3 border-t border-white/[0.06] pt-4">
+          <div className="min-w-0">
+            <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-500">Price</span>
+            <span className="mt-1 block truncate text-lg font-medium tracking-tight text-gold">
+              {priceLabel}
+            </span>
           </div>
           <button
             type="button"
-            onClick={(event) => { event.stopPropagation(); onQuickAdd(product); }}
+            onClick={(event) => {
+              event.stopPropagation();
+              onQuickAdd(product);
+            }}
             disabled={!availableSizes.length || product.isStockOut}
-            className="flex items-center gap-2 rounded-full bg-gold px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+            className="group/btn flex flex-shrink-0 items-center gap-2 rounded-full bg-gold px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-black transition-all duration-300 hover:bg-yellow-300 hover:shadow-[0_6px_20px_rgba(212,175,55,0.4)] disabled:cursor-not-allowed disabled:bg-gray-800 disabled:text-gray-500 disabled:shadow-none"
             aria-label={`Add ${product.name} in the smallest size to cart`}
           >
-            <ShoppingCart size={15} />
+            <ShoppingCart
+              size={14}
+              className="transition-transform duration-300 group-hover/btn:-translate-y-0.5"
+              strokeWidth={2.5}
+            />
             {availableSizes.length ? 'Quick add' : 'Unavailable'}
           </button>
         </div>
@@ -138,8 +262,161 @@ const ProductCard = React.memo(({ product, isWishlisted, onToggleWishlist, onOpe
     </motion.article>
   );
 });
+
 ProductCard.displayName = 'ProductCard';
 
+// --------------------------------------------------
+// Filter bar (redesigned)
+// --------------------------------------------------
+const FilterBar = ({
+  query, setQuery,
+  intensity, setIntensity,
+  sortBy, setSortBy,
+  activeFilter, setActiveFilter,
+  activeFilterCount, hasActiveFilters, clearAll,
+  resultCount,
+  onResetVisibleCount,
+}) => {
+  const handleQuery = (value) => { setQuery(value); onResetVisibleCount(); };
+  const handleIntensity = (value) => { setIntensity(value); onResetVisibleCount(); };
+  const handleFilter = (key) => { setActiveFilter(key); onResetVisibleCount(); };
+
+  return (
+    <div className="relative mb-6 overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.02] backdrop-blur-sm">
+      {/* Ambient inner glow */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(ellipse_at_top,rgba(212,175,55,0.07),transparent_75%)]" />
+
+      <div className="relative">
+        {/* Top row — search + dropdowns */}
+        <div className="p-3 md:p-4">
+          <div className="flex flex-col gap-3 lg:flex-row">
+            {/* Search */}
+            <label className="relative block flex-1">
+              <Search size={17} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+              <input
+                value={query}
+                onChange={(event) => handleQuery(event.target.value)}
+                placeholder="Search name, scent notes, or occasion…"
+                className="w-full rounded-xl border border-white/[0.08] bg-black/40 py-3 pl-11 pr-10 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-gold/60 focus:bg-black/60 focus:ring-2 focus:ring-gold/15"
+                aria-label="Search fragrances"
+              />
+              <AnimatePresence>
+                {query && (
+                  <motion.button
+                    type="button"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    onClick={() => handleQuery('')}
+                    className="absolute right-3 top-1/2 grid h-6 w-6 -translate-y-1/2 place-items-center rounded-full text-gray-500 transition hover:bg-white/5 hover:text-gray-200"
+                    aria-label="Clear search"
+                  >
+                    <X size={13} />
+                  </motion.button>
+                )}
+              </AnimatePresence>
+            </label>
+
+            {/* Intensity */}
+            <div className="relative">
+              <select
+                value={intensity}
+                onChange={(event) => handleIntensity(event.target.value)}
+                className="peer w-full cursor-pointer appearance-none rounded-xl border border-white/[0.08] bg-black/40 py-3 pl-10 pr-10 text-sm text-white outline-none transition hover:border-gold/40 focus:border-gold/60 focus:ring-2 focus:ring-gold/15 lg:w-44 [&>option]:bg-[#0e0d0b]"
+                aria-label="Filter by intensity"
+              >
+                {INTENSITIES.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <SlidersHorizontal size={15} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gold/60" />
+              <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition-transform peer-focus:rotate-180" />
+            </div>
+
+            {/* Sort */}
+            <div className="relative">
+              <select
+                value={sortBy}
+                onChange={(event) => setSortBy(event.target.value)}
+                className="peer w-full cursor-pointer appearance-none rounded-xl border border-white/[0.08] bg-black/40 py-3 pl-4 pr-10 text-sm text-white outline-none transition hover:border-gold/40 focus:border-gold/60 focus:ring-2 focus:ring-gold/15 lg:w-40 [&>option]:bg-[#0e0d0b]"
+                aria-label="Sort fragrances"
+              >
+                {SORTS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+              <ChevronDown size={15} className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 transition-transform peer-focus:rotate-180" />
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="mx-3 h-px bg-white/[0.06] md:mx-4" />
+
+        {/* Bottom row — segmented type chips + clear all */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3 md:p-4">
+          <div
+            className="relative inline-flex flex-wrap gap-0.5 rounded-full border border-white/[0.08] bg-black/40 p-1"
+            role="group"
+            aria-label="Filter fragrance type"
+          >
+            {FILTERS.map((filter) => {
+              const isActive = activeFilter === filter.key;
+              return (
+                <button
+                  key={filter.key}
+                  type="button"
+                  onClick={() => handleFilter(filter.key)}
+                  aria-pressed={isActive}
+                  className="relative rounded-full px-3.5 py-1.5 text-[11px] uppercase tracking-[0.14em] transition-colors duration-200 sm:px-4"
+                >
+                  {isActive && (
+                    <motion.span
+                      layoutId="active-pill"
+                      className="absolute inset-0 rounded-full bg-gradient-to-r from-gold to-yellow-400 shadow-[0_4px_14px_-4px_rgba(212,175,55,0.6)]"
+                      transition={{ type: 'spring', stiffness: 400, damping: 32 }}
+                    />
+                  )}
+                  <span className={`relative z-10 ${isActive ? 'text-black font-semibold' : 'text-gray-300 hover:text-gold'}`}>
+                    {filter.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-2 text-xs text-gray-400">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-gold" />
+              <span className="text-white">{resultCount}</span>
+              fragrance{resultCount === 1 ? '' : 's'}
+            </span>
+
+            <AnimatePresence>
+              {hasActiveFilters && (
+                <motion.button
+                  type="button"
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  onClick={clearAll}
+                  className="flex items-center gap-1.5 rounded-full border border-white/10 px-3 py-1.5 text-[11px] uppercase tracking-[0.14em] text-gray-400 transition hover:border-rose-400/40 hover:bg-rose-500/5 hover:text-rose-300"
+                >
+                  <X size={12} />
+                  Clear ({activeFilterCount})
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --------------------------------------------------
+// Main grid
+// --------------------------------------------------
 const ProductsGrid = ({ products = [], loading = false, wishlist = [], toggleWishlist, openProductModal }) => {
   const [activeFilter, setActiveFilter] = useState('all');
   const [query, setQuery] = useState('');
@@ -172,6 +449,20 @@ const ProductsGrid = ({ products = [], loading = false, wishlist = [], toggleWis
   const visibleProducts = filteredProducts.slice(0, visibleCount);
   const wishlistIds = useMemo(() => new Set(wishlist), [wishlist]);
 
+  const hasActiveFilters = query !== '' || intensity !== 'all' || activeFilter !== 'all';
+  const activeFilterCount = [
+    query !== '',
+    intensity !== 'all',
+    activeFilter !== 'all',
+  ].filter(Boolean).length;
+
+  const clearAll = () => {
+    setQuery('');
+    setIntensity('all');
+    setActiveFilter('all');
+    setVisibleCount(16);
+  };
+
   const quickAdd = (product) => {
     if (product.isStockOut) return;
     const smallestSize = [...product.sizes]
@@ -182,64 +473,120 @@ const ProductsGrid = ({ products = [], loading = false, wishlist = [], toggleWis
 
   const openProduct = (product) => openProductModal?.(product);
 
+  // --------------------------------------------------
+  // Loading skeleton
+  // --------------------------------------------------
   if (loading) return (
-    <section id="shop" className="flex min-h-[420px] items-center justify-center bg-black px-4 py-20">
-      <div className="text-center"><div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-gold border-t-transparent" /><p className="text-gray-400">Loading the LUXE collection…</p></div>
+    <section id="shop" className="relative overflow-hidden bg-[#080807] px-4 py-20 lg:px-10">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,rgba(212,175,55,0.08),transparent_70%)]" />
+      <div className="relative z-10 mx-auto max-w-7xl">
+        <div className="mx-auto mb-12 max-w-2xl text-center">
+          <p className="mb-3 text-xs uppercase tracking-[0.35em] text-gold/70">Find your signature</p>
+          <h2 className="font-display text-4xl font-light tracking-wide text-white md:text-5xl">The Fragrance Collection</h2>
+        </div>
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: 8 }).map((_, i) => <SkeletonCard key={i} />)}
+        </div>
+      </div>
     </section>
   );
 
+  // --------------------------------------------------
+  // Loaded view
+  // --------------------------------------------------
   return (
     <section id="shop" className="relative overflow-hidden bg-[#080807] px-4 py-20 lg:px-10">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,rgba(212,175,55,0.10),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-48 bg-gradient-to-t from-black/40 to-transparent" />
+
       <div className="relative z-10 mx-auto max-w-7xl">
-        <div className="mx-auto mb-10 max-w-2xl text-center">
-          <p className="mb-3 text-xs uppercase tracking-[0.35em] text-gold">Find your signature</p>
-          <h2 className="font-display text-4xl font-light tracking-wide text-white md:text-5xl">The Fragrance Collection</h2>
-          <p className="mt-4 text-sm leading-6 text-gray-400">Explore roll-ons and sprays by scent, intensity, and price.</p>
+        {/* Heading */}
+        <div className="mx-auto mb-12 max-w-2xl text-center">
+          <p className="mb-3 text-xs uppercase tracking-[0.35em] text-gold/80">Find your signature</p>
+          <h2 className="font-display text-4xl font-light tracking-wide text-white md:text-5xl">
+            The Fragrance Collection
+          </h2>
+          <div className="mx-auto mt-5 h-px w-16 bg-gradient-to-r from-transparent via-gold/60 to-transparent" />
+          <p className="mt-5 text-sm leading-6 text-gray-400">
+            Explore roll-ons and sprays by scent, intensity, and price.
+          </p>
         </div>
 
-        <div className="mb-8 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3 md:grid-cols-[1fr_auto_auto] md:p-4">
-          <label className="relative block">
-            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-            <input value={query} onChange={(event) => { setQuery(event.target.value); setVisibleCount(16); }} placeholder="Search name, scent notes, or occasion" className="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-gold/60" aria-label="Search fragrances" />
-          </label>
-          <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 text-gray-400">
-            <SlidersHorizontal size={15} />
-            <select value={intensity} onChange={(event) => { setIntensity(event.target.value); setVisibleCount(16); }} className="w-full bg-transparent py-3 text-sm text-white outline-none" aria-label="Filter by intensity">
-              <option value="all">All intensity</option><option value="light">Light</option><option value="medium">Medium</option><option value="strong">Strong</option>
-            </select>
-          </label>
-          <label className="rounded-xl border border-white/10 bg-black/40 px-3 text-gray-400">
-            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="w-full bg-transparent py-3 text-sm text-white outline-none" aria-label="Sort fragrances">
-              <option value="featured">Featured</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A to Z</option>
-            </select>
-          </label>
-        </div>
+        {/* Filter bar */}
+        <FilterBar
+          query={query}
+          setQuery={setQuery}
+          intensity={intensity}
+          setIntensity={setIntensity}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          activeFilter={activeFilter}
+          setActiveFilter={setActiveFilter}
+          activeFilterCount={activeFilterCount}
+          hasActiveFilters={hasActiveFilters}
+          clearAll={clearAll}
+          resultCount={filteredProducts.length}
+          onResetVisibleCount={() => setVisibleCount(16)}
+        />
 
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter fragrance type">
-            {FILTERS.map((filter) => (
-              <button key={filter.key} type="button" onClick={() => { setActiveFilter(filter.key); setVisibleCount(16); }} aria-pressed={activeFilter === filter.key} className={`rounded-full border px-4 py-2 text-xs uppercase tracking-wider transition ${activeFilter === filter.key ? 'border-gold bg-gold text-black' : 'border-white/15 text-gray-300 hover:border-gold/60 hover:text-gold'}`}>
-                {filter.label}
-              </button>
-            ))}
-          </div>
-          <p className="text-sm text-gray-400">{filteredProducts.length} fragrance{filteredProducts.length === 1 ? '' : 's'}</p>
-        </div>
-
+        {/* Grid */}
         {visibleProducts.length ? (
           <>
-            <motion.div layout className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            <motion.div
+              layout
+              className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            >
               {visibleProducts.map((product) => (
-                <ProductCard key={product.id} product={product} isWishlisted={wishlistIds.has(product.id)} onToggleWishlist={toggleWishlist || (() => {})} onOpen={openProduct} onQuickAdd={quickAdd} />
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  isWishlisted={wishlistIds.has(product.id)}
+                  onToggleWishlist={toggleWishlist || (() => {})}
+                  onOpen={openProduct}
+                  onQuickAdd={quickAdd}
+                />
               ))}
             </motion.div>
-            {visibleCount < filteredProducts.length && <div className="mt-10 text-center"><button type="button" onClick={() => setVisibleCount((count) => count + 16)} className="rounded-full border border-gold/50 px-7 py-3 text-sm text-gold transition hover:bg-gold hover:text-black">Show more fragrances</button></div>}
+
+            {visibleCount < filteredProducts.length && (
+              <div className="mt-12 text-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((count) => count + 16)}
+                  className="group relative overflow-hidden rounded-full border border-gold/40 px-8 py-3 text-sm tracking-wide text-gold transition-all duration-300 hover:border-gold hover:bg-gold hover:text-black hover:shadow-[0_8px_28px_rgba(212,175,55,0.35)]"
+                >
+                  <span className="relative z-10">
+                    Show more fragrances
+                    <span className="ml-2 text-xs opacity-70">
+                      ({filteredProducts.length - visibleCount} left)
+                    </span>
+                  </span>
+                </button>
+              </div>
+            )}
           </>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-16 text-center">
-            <p className="mb-3 text-3xl">✨</p><p className="text-lg text-white">No fragrances match those filters.</p>
-            <button type="button" onClick={() => { setQuery(''); setIntensity('all'); setActiveFilter('all'); }} className="mt-4 text-sm text-gold underline underline-offset-4">Clear filters</button>
+          /* Empty state */
+          <div className="relative overflow-hidden rounded-3xl border border-white/[0.08] bg-gradient-to-b from-white/[0.035] to-white/[0.01] px-6 py-20 text-center">
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-[radial-gradient(ellipse_at_top,rgba(212,175,55,0.10),transparent_70%)]" />
+            <div className="relative">
+              <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-full border border-gold/25 bg-gold/5">
+                <Search size={24} className="text-gold/70" />
+              </div>
+              <p className="mb-2 font-display text-2xl tracking-wide text-white">
+                No fragrances match those filters
+              </p>
+              <p className="mx-auto mb-6 max-w-sm text-sm text-gray-400">
+                Try adjusting your search or clearing filters to see the full collection.
+              </p>
+              <button
+                type="button"
+                onClick={clearAll}
+                className="rounded-full border border-gold/50 px-6 py-2.5 text-sm text-gold transition hover:bg-gold hover:text-black"
+              >
+                Clear filters
+              </button>
+            </div>
           </div>
         )}
       </div>

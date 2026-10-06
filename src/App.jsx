@@ -14,7 +14,6 @@ import Testimonials from './components/Testimonials';
 import About from './components/About';
 import Philosophy from './components/Philosophy';
 import PersonalizedSection from './components/PersonalizedSection';
-import SearchSection from './components/SearchSection';
 import Contact from './components/Contact';
 import Footer from './components/Footer';
 import CartSidebar from './components/CartSidebar';
@@ -204,12 +203,11 @@ const AppContent = () => {
           toggleWishlist={toggleWishlist}
           openProductModal={openProductModal}
         />
-        <SearchSection />
         <ScentNotes />
         <AIFragranceFinder openProductModal={openProductModal} />
-        <Testimonials />
         <About />
         <Philosophy />
+        <Testimonials />
         <PersonalizedSection />
         <Contact />
       </main>
