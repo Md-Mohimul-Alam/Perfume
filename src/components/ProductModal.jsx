@@ -5,6 +5,11 @@ import { X, Plus, Minus, ShoppingCart, Star, Award } from 'lucide-react';
 import API from '../api/axios';
 
 const productEmojis = { perfume: '🌸', oil: '💧' };
+const toList = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean).map((item) => String(item).trim()).filter(Boolean);
+  if (typeof value !== 'string') return [];
+  return value.split(/[,|•]/).map((item) => item.trim()).filter(Boolean);
+};
 const normalizeImageUrl = (url) => {
   if (!url) return null;
   if (url.startsWith('http://') || url.startsWith('https://')) return url;
@@ -29,7 +34,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       try {
         setLoading(true);
         const response = await API.get(`/products/${initialProduct.id}`);
-        const fresh = transformProduct(response.data);
+        const fresh = transformProduct(response.data?.product || response.data?.data || response.data);
         setProduct(fresh);
       } catch (error) {
         console.error('Failed to fetch product details:', error);
@@ -50,7 +55,8 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       const prices = validSizes.map((s) => s.sellingPrice || 0);
       basePrice = Math.min(...prices);
     }
-    const notes = backendProduct.notes?.length > 0 ? backendProduct.notes : (backendProduct.blendComponents?.map(c => c.material?.name || '') || ['Premium']);
+    const notes = toList(backendProduct.notes).flatMap((note) => note.split(/\s+/).filter(Boolean));
+    if (notes.length === 0) notes.push('Premium');
     const isNew = backendProduct.createdAt && (new Date() - new Date(backendProduct.createdAt) < 30 * 24 * 60 * 60 * 1000);
     return {
       id: backendProduct._id,
@@ -60,7 +66,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
       basePrice,
       notes,
       intensity: backendProduct.intensity || (isSpray ? 'medium' : 'strong'),
-      bestFor: backendProduct.bestFor || ['all'],
+      bestFor: toList(backendProduct.bestFor).length ? toList(backendProduct.bestFor) : ['all'],
       isNew,
       isBestseller: backendProduct.isBestseller || false,
       isStockOut: backendProduct.isStockOut || false,
@@ -75,7 +81,7 @@ const ProductModal = React.memo(({ product: initialProduct, onClose }) => {
     return [...sizes].filter(s => s.sizeMl !== 3).sort((a, b) => a.sizeMl - b.sizeMl);
   }, [product.backendData?.sizes]);
 
-  const formatSizeLabel = useCallback((size) => `${size.sizeMl}ml ${size.bottle?.type || ''}`.trim(), []);
+  const formatSizeLabel = useCallback((size) => `${size.sizeMl}ml ${size.bottle?.type || size.bottleType || ''}`.trim(), []);
   const getIntensityIcon = useCallback((intensity) => {
     switch (intensity) {
       case 'light': return '🕯️';

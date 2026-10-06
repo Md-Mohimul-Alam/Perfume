@@ -1,338 +1,223 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, useMotionValue, useTransform } from 'framer-motion';
-import { Heart, ShoppingCart, Eye, ChevronDown } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { motion } from 'framer-motion';
+import { Heart, Search, ShoppingCart, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 
-const productEmojis = { perfume: '🌸', oil: '💧' };
+const FILTERS = [
+  { key: 'all', label: 'All fragrances' },
+  { key: 'spray', label: 'Spray' },
+  { key: 'roll-on', label: 'Roll-on' },
+  { key: 'bestsellers', label: 'Bestsellers' },
+];
 
-const ProductCard = React.memo(({ product, wishlist, toggleWishlist, openProductModal, quickAddToCart }) => {
-  const isInWishlist = wishlist.includes(product.id);
-  const [imgError, setImgError] = useState(false);
-  const [imgLoaded, setImgLoaded] = useState(false);
+const toList = (value) => {
+  if (Array.isArray(value)) return value.filter(Boolean).map((item) => String(item).trim()).filter(Boolean);
+  if (typeof value !== 'string') return [];
+  return value.split(/[,|•]/).map((item) => item.trim()).filter(Boolean);
+};
 
-  // 3D tilt values
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const rotateX = useTransform(y, [-100, 100], [10, -10]);
-  const rotateY = useTransform(x, [-100, 100], [-10, 10]);
+const getType = (product = {}) => {
+  const raw = String(product.type || product.category || '').toLowerCase().replace(/[_\s]/g, '-');
+  if (raw === 'rollon' || raw === 'roll-on' || raw === 'oil') return 'roll-on';
+  return 'spray';
+};
 
-  const handleMouseMove = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const offsetX = e.clientX - rect.left - rect.width / 2;
-    const offsetY = e.clientY - rect.top - rect.height / 2;
-    x.set(offsetX);
-    y.set(offsetY);
+const normalizeProduct = (product) => {
+  const sizes = Array.isArray(product.sizes) ? product.sizes : [];
+  const prices = sizes.map((size) => Number(size.sellingPrice)).filter((price) => Number.isFinite(price) && price > 0);
+  const type = getType(product);
+  return {
+    ...product,
+    id: product.id || product._id,
+    category: product.category || (type === 'spray' ? 'perfume' : 'oil'),
+    type,
+    notes: toList(product.notes).flatMap((note) => note.split(/\s+/).filter(Boolean)),
+    bestFor: toList(product.bestFor),
+    basePrice: Number(product.basePrice ?? product.minPrice ?? (prices.length ? Math.min(...prices) : 0)),
+    minPrice: Number(product.minPrice ?? (prices.length ? Math.min(...prices) : product.basePrice ?? 0)),
+    maxPrice: Number(product.maxPrice ?? (prices.length ? Math.max(...prices) : product.basePrice ?? 0)),
+    sizes,
   };
+};
 
-  const handleMouseLeave = () => { x.set(0); y.set(0); };
+const ProductCard = React.memo(({ product, isWishlisted, onToggleWishlist, onOpen, onQuickAdd }) => {
+  const isRollOn = product.type === 'roll-on';
+  const availableSizes = product.sizes.filter((size) => Number(size.sellingPrice) > 0);
+  const priceLabel = product.minPrice && product.maxPrice && product.minPrice !== product.maxPrice
+    ? `৳${product.minPrice.toLocaleString()} – ৳${product.maxPrice.toLocaleString()}`
+    : `৳${(product.minPrice || product.basePrice || 0).toLocaleString()}`;
 
   return (
-    <motion.div
-      className="product-card relative bg-white/5 border border-gold/15 rounded-lg overflow-hidden transition-shadow duration-300 hover:shadow-[0_0_40px_rgba(212,175,55,0.3)]"
-      style={{ rotateX, rotateY, transformStyle: 'preserve-3d' }}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+    <motion.article
       layout
+      initial={{ opacity: 0, y: 14 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="group relative overflow-hidden rounded-2xl border border-gold/15 bg-gradient-to-b from-white/[0.07] to-white/[0.02] transition duration-300 hover:-translate-y-1 hover:border-gold/40 hover:shadow-[0_18px_55px_rgba(212,175,55,0.12)]"
     >
-      {/* Badges */}
-      <div className="absolute top-4 right-4 z-20 flex flex-col gap-2">
-        {product.isStockOut && (
-          <span className="bg-gray-800 text-white px-3 py-1 text-xs font-semibold rounded border border-red-500">
-            OUT OF STOCK
-          </span>
-        )}
-        {product.isNew && <span className="bg-gold text-black px-3 py-1 text-xs font-semibold rounded animate-pulse">NEW</span>}
-        {product.isBestseller && <span className="bg-red-600 text-white px-3 py-1 text-xs font-semibold rounded">BESTSELLER</span>}
-      </div>
-
-      {/* Wishlist */}
-      <button
-        onClick={(e) => { e.stopPropagation(); toggleWishlist(product.id); }}
-        className={`absolute top-4 left-4 z-20 w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center transition-all duration-300 ${
-          isInWishlist ? 'text-red-500 scale-110' : 'text-white hover:scale-110 hover:text-red-400'
-        }`}
-        aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
-      >
-        <Heart size={20} fill={isInWishlist ? 'currentColor' : 'none'} />
-      </button>
-
-      {/* Image */}
-      <div
-        className={`w-full h-80 flex items-center justify-center relative overflow-hidden cursor-pointer ${
-          product.isStockOut ? 'bg-gray-900/40 grayscale' : 'bg-gradient-to-br from-gold/10 to-purple-900/10'
-        }`}
-        onClick={() => openProductModal(product)}
-      >
-        {product.mainImage && !imgError ? (
-          <>
-            <img
-              src={product.mainImage}
-              alt={product.name}
-              className={`w-full h-full object-contain p-4 transition-all duration-300 ${
-                imgLoaded ? 'opacity-100' : 'opacity-0'
-              } group-hover:scale-105`}
-              onLoad={() => setImgLoaded(true)}
-              onError={() => setImgError(true)}
-              loading="lazy"
-            />
-            {!imgLoaded && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-          </>
-        ) : (
-          <span className="text-6xl transition-transform duration-300 group-hover:scale-110">
-            {productEmojis[product.category] || '✨'}
-          </span>
-        )}
-
-        {/* Hover actions */}
-        <div className="absolute inset-0 bg-black/70 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <div className="flex space-x-4">
-            <button
-              onClick={(e) => quickAddToCart(product, e)}
-              disabled={product.isStockOut}
-              className={`w-12 h-12 rounded-full flex items-center justify-center transition-transform duration-300 shadow-lg ${
-                product.isStockOut
-                  ? 'bg-gray-500 text-gray-300 cursor-not-allowed'
-                  : 'bg-gold text-black hover:scale-110'
-              }`}
-              aria-label="Quick add to cart"
-            >
-              <ShoppingCart size={20} />
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); openProductModal(product); }}
-              className="w-12 h-12 bg-white text-black rounded-full flex items-center justify-center hover:scale-110 transition-transform duration-300 shadow-lg"
-              aria-label="View details"
-            >
-              <Eye size={20} />
-            </button>
+      <div className="relative flex h-64 cursor-pointer items-center justify-center overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(212,175,55,0.14),transparent_66%)]" onClick={() => onOpen(product)}>
+        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-gold/[0.06]" />
+        <div className={`relative flex items-center justify-center border border-white/30 bg-gradient-to-br from-white/25 to-white/[0.04] shadow-[0_18px_45px_rgba(0,0,0,0.45)] transition duration-500 group-hover:scale-105 ${isRollOn ? 'h-36 w-20 rounded-[1.1rem]' : 'h-44 w-24 rounded-t-[1.3rem] rounded-b-2xl'}`}>
+          <div className="absolute -top-5 h-7 w-9 rounded-t-md border border-white/20 bg-gradient-to-b from-gray-300 to-gray-600" />
+          <div className="absolute inset-x-2 top-1/3 h-px bg-white/25" />
+          <div className="absolute inset-x-2 bottom-5 border-y border-gold/30 py-2 text-center">
+            <span className="block text-[9px] font-semibold tracking-[0.24em] text-gold">LUXE</span>
+            <span className="mt-1 block text-[7px] uppercase tracking-widest text-white/60">{isRollOn ? 'OIL' : 'PARFUM'}</span>
           </div>
+          <span className="absolute bottom-1 right-2 text-white/50"><Sparkles size={12} /></span>
         </div>
-      </div>
 
-      {/* Info */}
-      <div className="p-6">
-        <span className="text-gray-400 text-xs tracking-widest uppercase font-medium">{product.category}</span>
-        <h3 className="font-display text-xl text-white mt-2 mb-3 font-normal tracking-wide line-clamp-2">{product.name}</h3>
-        <p className="text-gold text-2xl font-light mb-4 tracking-wide">From ৳{product.basePrice || 0}</p>
+        <span className="absolute left-4 top-4 rounded-full border border-gold/25 bg-black/55 px-3 py-1 text-[10px] uppercase tracking-[0.18em] text-gold backdrop-blur">
+          {isRollOn ? 'Roll-on' : 'Spray'}
+        </span>
+        {product.isBestseller && <span className="absolute bottom-4 left-4 rounded-full bg-gold px-3 py-1 text-[10px] font-semibold uppercase tracking-wider text-black">Bestseller</span>}
+
         <button
-          onClick={(e) => quickAddToCart(product, e)}
-          disabled={product.isStockOut}
-          className={`w-full py-3 px-6 text-sm tracking-wider uppercase font-light transition-all duration-300 relative overflow-hidden group ${
-            product.isStockOut
-              ? 'bg-gray-800 text-gray-400 border border-gray-600 cursor-not-allowed'
-              : 'bg-transparent border border-gold/30 text-white hover:bg-gold hover:text-black'
-          }`}
+          type="button"
+          onClick={(event) => { event.stopPropagation(); onToggleWishlist(product.id); }}
+          className={`absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full border border-white/15 bg-black/55 backdrop-blur transition hover:scale-105 ${isWishlisted ? 'text-rose-400' : 'text-white hover:text-rose-300'}`}
+          aria-label={isWishlisted ? `Remove ${product.name} from wishlist` : `Add ${product.name} to wishlist`}
         >
-          <span className="relative z-10">
-            {product.isStockOut ? 'Out of Stock' : 'Quick Add to Cart'}
-          </span>
-          {!product.isStockOut && (
-            <div className="absolute inset-0 bg-gold transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
-          )}
+          <Heart size={18} fill={isWishlisted ? 'currentColor' : 'none'} />
+        </button>
+
+        <button type="button" onClick={(event) => { event.stopPropagation(); onOpen(product); }} className="absolute inset-x-5 bottom-4 translate-y-3 rounded-full bg-white/95 py-2.5 text-xs font-medium uppercase tracking-[0.15em] text-black opacity-0 transition group-hover:translate-y-0 group-hover:opacity-100 focus:translate-y-0 focus:opacity-100">
+          View fragrance
         </button>
       </div>
-    </motion.div>
+
+      <div className="p-5">
+        <div className="mb-2 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.17em] text-gray-400">
+          <span>{product.intensity || 'Signature'} intensity</span>
+          <span>{product.sizes.length} size{product.sizes.length === 1 ? '' : 's'}</span>
+        </div>
+        <button type="button" onClick={() => onOpen(product)} className="line-clamp-1 text-left font-display text-lg text-white transition hover:text-gold">{product.name}</button>
+        <p className="mt-1 line-clamp-2 min-h-10 text-sm leading-5 text-gray-400">{product.description || 'A carefully selected fragrance for your everyday signature.'}</p>
+
+        {!!product.notes.length && <div className="mt-3 flex min-h-6 flex-wrap gap-1.5">{product.notes.slice(0, 3).map((note) => <span key={note} className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] capitalize text-gray-300">{note}</span>)}</div>}
+
+        <div className="mt-4 flex items-end justify-between gap-3 border-t border-white/10 pt-4">
+          <div>
+            <span className="block text-[10px] uppercase tracking-widest text-gray-500">Price</span>
+            <span className="mt-1 block text-lg font-medium text-gold">{priceLabel}</span>
+          </div>
+          <button
+            type="button"
+            onClick={(event) => { event.stopPropagation(); onQuickAdd(product); }}
+            disabled={!availableSizes.length || product.isStockOut}
+            className="flex items-center gap-2 rounded-full bg-gold px-4 py-2.5 text-xs font-semibold uppercase tracking-wider text-black transition hover:bg-yellow-300 disabled:cursor-not-allowed disabled:bg-gray-700 disabled:text-gray-400"
+            aria-label={`Add ${product.name} in the smallest size to cart`}
+          >
+            <ShoppingCart size={15} />
+            {availableSizes.length ? 'Quick add' : 'Unavailable'}
+          </button>
+        </div>
+      </div>
+    </motion.article>
   );
 });
 ProductCard.displayName = 'ProductCard';
 
-// ============================================================
-// Main Grid — receives products + loading from parent (App.jsx)
-// ============================================================
-const ProductsGrid = ({
-  products = [],
-  loading = false,
-  wishlist = [],
-  toggleWishlist,
-  openProductModal,
-}) => {
-  const [currentFilter, setCurrentFilter] = useState('all');
-  const [visibleCount, setVisibleCount] = useState(20);
+const ProductsGrid = ({ products = [], loading = false, wishlist = [], toggleWishlist, openProductModal }) => {
+  const [activeFilter, setActiveFilter] = useState('all');
+  const [query, setQuery] = useState('');
+  const [intensity, setIntensity] = useState('all');
+  const [sortBy, setSortBy] = useState('featured');
+  const [visibleCount, setVisibleCount] = useState(16);
   const { addToCart } = useCart();
 
-  const getInitialCount = useCallback(() => (window.innerWidth < 768 ? 10 : 20), []);
+  const activeProducts = useMemo(() => products
+    .filter((product) => product && product.isActive !== false)
+    .map(normalizeProduct), [products]);
 
-  useEffect(() => {
-    const updateCount = () => setVisibleCount(getInitialCount());
-    updateCount();
-    window.addEventListener('resize', updateCount);
-    return () => window.removeEventListener('resize', updateCount);
-  }, [getInitialCount]);
-
-  // ---------- Quick add to cart (smallest size) ----------
-  const quickAddToCart = useCallback(
-    (product, event) => {
-      event?.stopPropagation();
-      if (product.isStockOut) return;
-      const sizes = product.sizes || [];
-      if (sizes.length === 0) return;
-      const sorted = [...sizes].sort((a, b) => a.sizeMl - b.sizeMl);
-      const smallest = sorted[0];
-      if (smallest && smallest.sellingPrice) addToCart(product, smallest, 1);
-    },
-    [addToCart]
-  );
-
-  // ---------- Filtering ----------
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      switch (currentFilter) {
-        case 'perfume':
-          return product.category === 'perfume';
-        case 'oil':
-          return product.category === 'oil';
-        case 'new':
-          return product.isNew;
-        case 'bestsellers':
-          return product.isBestseller;
-        case 'bestseller-perfume':
-          return product.isBestseller && product.category === 'perfume';
-        case 'bestseller-oil':
-          return product.isBestseller && product.category === 'oil';
-        default:
-          return true;
-      }
+    const search = query.trim().toLowerCase();
+    const result = activeProducts.filter((product) => {
+      const matchesType = activeFilter === 'all'
+        || (activeFilter === 'bestsellers' ? product.isBestseller : product.type === activeFilter);
+      const matchesIntensity = intensity === 'all' || String(product.intensity || '').toLowerCase() === intensity;
+      const haystack = [product.name, product.sku, product.description, product.notes.join(' '), product.bestFor.join(' '), product.type].join(' ').toLowerCase();
+      return matchesType && matchesIntensity && (!search || haystack.includes(search));
     });
-  }, [products, currentFilter]);
 
-  const displayedProducts = useMemo(
-    () => filteredProducts.slice(0, visibleCount),
-    [filteredProducts, visibleCount]
+    if (sortBy === 'price-low') result.sort((a, b) => a.minPrice - b.minPrice);
+    if (sortBy === 'price-high') result.sort((a, b) => b.minPrice - a.minPrice);
+    if (sortBy === 'name') result.sort((a, b) => a.name.localeCompare(b.name));
+    if (sortBy === 'featured') result.sort((a, b) => Number(b.isBestseller) - Number(a.isBestseller) || a.name.localeCompare(b.name));
+    return result;
+  }, [activeProducts, activeFilter, intensity, query, sortBy]);
+
+  const visibleProducts = filteredProducts.slice(0, visibleCount);
+  const wishlistIds = useMemo(() => new Set(wishlist), [wishlist]);
+
+  const quickAdd = (product) => {
+    if (product.isStockOut) return;
+    const smallestSize = [...product.sizes]
+      .filter((size) => Number(size.sellingPrice) > 0)
+      .sort((a, b) => Number(a.sizeMl) - Number(b.sizeMl))[0];
+    if (smallestSize) addToCart(product, smallestSize, 1);
+  };
+
+  const openProduct = (product) => openProductModal?.(product);
+
+  if (loading) return (
+    <section id="shop" className="flex min-h-[420px] items-center justify-center bg-black px-4 py-20">
+      <div className="text-center"><div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-2 border-gold border-t-transparent" /><p className="text-gray-400">Loading the LUXE collection…</p></div>
+    </section>
   );
-
-  const loadMore = useCallback(
-    () => setVisibleCount(filteredProducts.length),
-    [filteredProducts.length]
-  );
-
-  const hasMore = visibleCount < filteredProducts.length;
-
-  // ---------- Loading state ----------
-  if (loading) {
-    return (
-      <section className="py-20 px-4 bg-black min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-gold border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading our collection...</p>
-        </div>
-      </section>
-    );
-  }
-
-  // ---------- Empty state (no products from backend at all) ----------
-  if (products.length === 0) {
-    return (
-      <section id="shop" className="py-20 px-4 lg:px-16 bg-black min-h-screen flex items-center justify-center">
-        <div className="text-center text-gray-400">
-          <p className="text-6xl mb-4">🛒</p>
-          <p>No products available right now.</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-6 px-6 py-3 border border-gold text-white hover:bg-gold hover:text-black transition-colors"
-          >
-            Retry
-          </button>
-        </div>
-      </section>
-    );
-  }
 
   return (
-    <section id="shop" className="py-20 px-4 lg:px-16 bg-black relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-radial from-gold/5 via-transparent to-transparent animate-pulse" />
-
-      <div className="max-w-7xl mx-auto relative z-10">
-        <motion.h2
-          className="font-display text-4xl lg:text-5xl text-center text-white mb-4 tracking-widest uppercase font-light gold-gradient"
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-        >
-          Our Collection
-        </motion.h2>
-
-        <motion.p
-          className="text-center text-gray-400 text-lg mb-12 tracking-widest font-light"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 1 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-        >
-          Discover our premium selection of fragrances and oils
-        </motion.p>
-
-        {/* Filter Tabs */}
-        <div className="flex flex-col items-center gap-4 mb-16">
-          <div className="filter-tabs text-white flex flex-wrap justify-center gap-4">
-            {[
-              { key: 'all', label: 'All Products' },
-              { key: 'perfume', label: 'Perfumes' },
-              { key: 'oil', label: 'Essential Oils' },
-              { key: 'new', label: 'New Arrivals' },
-              { key: 'bestsellers', label: 'Bestsellers' },
-              { key: 'bestseller-perfume', label: 'Bestseller Perfume' },
-              { key: 'bestseller-oil', label: 'Bestseller Oil' },
-            ].map((filter) => (
-              <motion.button
-                key={filter.key}
-                className={`px-7 py-3 border border-gold/30 text-sm tracking-wider uppercase font-light transition-all duration-300 ${
-                  currentFilter === filter.key
-                    ? 'bg-gold text-black border-gold'
-                    : 'text-white hover:bg-gold/10 hover:border-gold/60'
-                }`}
-                onClick={() => setCurrentFilter(filter.key)}
-                whileTap={{ scale: 0.95 }}
-              >
-                {filter.label}
-              </motion.button>
-            ))}
-          </div>
-          <p className="text-gray-400 text-sm">
-            {filteredProducts.length} product{filteredProducts.length !== 1 && 's'} found
-          </p>
+    <section id="shop" className="relative overflow-hidden bg-[#080807] px-4 py-20 lg:px-10">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-[radial-gradient(ellipse_at_top,rgba(212,175,55,0.10),transparent_70%)]" />
+      <div className="relative z-10 mx-auto max-w-7xl">
+        <div className="mx-auto mb-10 max-w-2xl text-center">
+          <p className="mb-3 text-xs uppercase tracking-[0.35em] text-gold">Find your signature</p>
+          <h2 className="font-display text-4xl font-light tracking-wide text-white md:text-5xl">The Fragrance Collection</h2>
+          <p className="mt-4 text-sm leading-6 text-gray-400">Explore roll-ons and sprays by scent, intensity, and price.</p>
         </div>
 
-        {/* Products */}
-        {displayedProducts.length === 0 ? (
-          <div className="text-center text-gray-400 py-16">
-            <p className="text-6xl mb-4">🛒</p>
-            <p>No products found matching your criteria.</p>
-            <button
-              onClick={() => setCurrentFilter('all')}
-              className="mt-4 text-gold underline hover:text-gold/80"
-            >
-              Show all products
-            </button>
+        <div className="mb-8 grid gap-3 rounded-2xl border border-white/10 bg-white/[0.035] p-3 md:grid-cols-[1fr_auto_auto] md:p-4">
+          <label className="relative block">
+            <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
+            <input value={query} onChange={(event) => { setQuery(event.target.value); setVisibleCount(16); }} placeholder="Search name, scent notes, or occasion" className="w-full rounded-xl border border-white/10 bg-black/40 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-gray-500 focus:border-gold/60" aria-label="Search fragrances" />
+          </label>
+          <label className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/40 px-3 text-gray-400">
+            <SlidersHorizontal size={15} />
+            <select value={intensity} onChange={(event) => { setIntensity(event.target.value); setVisibleCount(16); }} className="w-full bg-transparent py-3 text-sm text-white outline-none" aria-label="Filter by intensity">
+              <option value="all">All intensity</option><option value="light">Light</option><option value="medium">Medium</option><option value="strong">Strong</option>
+            </select>
+          </label>
+          <label className="rounded-xl border border-white/10 bg-black/40 px-3 text-gray-400">
+            <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="w-full bg-transparent py-3 text-sm text-white outline-none" aria-label="Sort fragrances">
+              <option value="featured">Featured</option><option value="price-low">Price: low to high</option><option value="price-high">Price: high to low</option><option value="name">Name: A to Z</option>
+            </select>
+          </label>
+        </div>
+
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2" role="group" aria-label="Filter fragrance type">
+            {FILTERS.map((filter) => (
+              <button key={filter.key} type="button" onClick={() => { setActiveFilter(filter.key); setVisibleCount(16); }} aria-pressed={activeFilter === filter.key} className={`rounded-full border px-4 py-2 text-xs uppercase tracking-wider transition ${activeFilter === filter.key ? 'border-gold bg-gold text-black' : 'border-white/15 text-gray-300 hover:border-gold/60 hover:text-gold'}`}>
+                {filter.label}
+              </button>
+            ))}
           </div>
-        ) : (
+          <p className="text-sm text-gray-400">{filteredProducts.length} fragrance{filteredProducts.length === 1 ? '' : 's'}</p>
+        </div>
+
+        {visibleProducts.length ? (
           <>
-            <motion.div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-              {displayedProducts.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  wishlist={wishlist}
-                  toggleWishlist={toggleWishlist}
-                  openProductModal={openProductModal}
-                  quickAddToCart={quickAddToCart}
-                />
+            <motion.div layout className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {visibleProducts.map((product) => (
+                <ProductCard key={product.id} product={product} isWishlisted={wishlistIds.has(product.id)} onToggleWishlist={toggleWishlist || (() => {})} onOpen={openProduct} onQuickAdd={quickAdd} />
               ))}
             </motion.div>
-
-            {hasMore && (
-              <div className="flex justify-center mt-12">
-                <button
-                  onClick={loadMore}
-                  className="flex items-center gap-2 px-8 py-4 border border-gold/50 text-gold hover:bg-gold hover:text-black transition-all duration-300 rounded-lg font-medium tracking-wide"
-                >
-                  <span>Load More</span> <ChevronDown size={20} />
-                </button>
-              </div>
-            )}
+            {visibleCount < filteredProducts.length && <div className="mt-10 text-center"><button type="button" onClick={() => setVisibleCount((count) => count + 16)} className="rounded-full border border-gold/50 px-7 py-3 text-sm text-gold transition hover:bg-gold hover:text-black">Show more fragrances</button></div>}
           </>
+        ) : (
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-16 text-center">
+            <p className="mb-3 text-3xl">✨</p><p className="text-lg text-white">No fragrances match those filters.</p>
+            <button type="button" onClick={() => { setQuery(''); setIntensity('all'); setActiveFilter('all'); }} className="mt-4 text-sm text-gold underline underline-offset-4">Clear filters</button>
+          </div>
         )}
       </div>
     </section>
