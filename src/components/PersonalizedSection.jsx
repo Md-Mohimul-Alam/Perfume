@@ -1,133 +1,73 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { Sparkles } from 'lucide-react';
 
-const PersonalizedSection = () => {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    gender: '',
-    age: '',
-    style: ''
+const INITIAL_PREFERENCES = { format: 'any', intensity: '', note: '', occasion: '' };
+
+const PersonalizedSection = ({ onSavePreferences }) => {
+  const [preferences, setPreferences] = useState(() => {
+    try {
+      const savedPreferences = window.localStorage.getItem('luxeScentPreferences');
+      return savedPreferences ? { ...INITIAL_PREFERENCES, ...JSON.parse(savedPreferences) } : INITIAL_PREFERENCES;
+    } catch {
+      return INITIAL_PREFERENCES;
+    }
   });
+  const [saved, setSaved] = useState(false);
 
-  const handleInputChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+  const handleChange = (event) => {
+    setSaved(false);
+    setPreferences((current) => ({ ...current, [event.target.name]: event.target.value }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // Save to localStorage
-    localStorage.setItem('luxeUserProfile', JSON.stringify(formData));
-    alert('Profile created successfully! You will now receive personalized recommendations.');
-    setFormData({ name: '', email: '', gender: '', age: '', style: '' });
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    const profile = { ...preferences, updatedAt: new Date().toISOString() };
+    try {
+      window.localStorage.setItem('luxeScentPreferences', JSON.stringify(profile));
+      onSavePreferences?.(profile);
+      setSaved(true);
+    } catch (error) {
+      console.error('Could not save fragrance preferences:', error);
+      setSaved(false);
+    }
   };
 
   return (
-    <section className="personalized-section py-20 px-4 bg-black relative overflow-hidden">
-      <div className="absolute inset-0 bg-gradient-radial from-gold/5 via-transparent to-transparent" />
-      
-      <div className="max-w-6xl mx-auto relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-          <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8 }}
-            className="text-center lg:text-left"
-          >
-            <h2 className="personalized-title font-display text-4xl lg:text-5xl text-white mb-6 tracking-widest uppercase font-light">
-              Personalized Experience
-            </h2>
-            <p className="personalized-subtitle text-gray-400 text-lg leading-relaxed">
-              Create your custom fragrance profile for tailored recommendations and exclusive offers. 
-              Our AI will learn your preferences to suggest the perfect scents just for you.
-            </p>
-          </motion.div>
-          
-          <motion.div
-            initial={{ opacity: 0, x: 50 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            <form onSubmit={handleSubmit} className="personalized-form space-y-6">
-              <input
-                type="text"
-                name="name"
-                placeholder="Your Name"
-                value={formData.name}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-white/5 border border-gold/30 text-white placeholder-gray-400 focus:outline-none focus:border-gold transition-colors"
-                required
-              />
-              
-              <input
-                type="email"
-                name="email"
-                placeholder="Your Email"
-                value={formData.email}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-white/5 border border-gold/30 text-white placeholder-gray-400 focus:outline-none focus:border-gold transition-colors"
-                required
-              />
-              
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-white/5 border border-gold/30 text-white focus:outline-none focus:border-gold transition-colors"
-                required
-              >
-                <option value="">Select Gender</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="non-binary">Non-binary</option>
-                <option value="prefer-not-to-say">Prefer not to say</option>
-              </select>
-              
-              <select
-                name="age"
-                value={formData.age}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-white/5 border border-gold/30 text-white focus:outline-none focus:border-gold transition-colors"
-                required
-              >
-                <option value="">Select Age Range</option>
-                <option value="18-24">18-24</option>
-                <option value="25-34">25-34</option>
-                <option value="35-44">35-44</option>
-                <option value="45-54">45-54</option>
-                <option value="55+">55+</option>
-              </select>
-              
-              <select
-                name="style"
-                value={formData.style}
-                onChange={handleInputChange}
-                className="w-full px-4 py-3 bg-white/5 border border-gold/30 text-white focus:outline-none focus:border-gold transition-colors"
-                required
-              >
-                <option value="">Select Your Style</option>
-                <option value="classic">Classic & Timeless</option>
-                <option value="modern">Modern & Trendy</option>
-                <option value="bohemian">Bohemian & Free-spirited</option>
-                <option value="minimalist">Minimalist & Clean</option>
-                <option value="luxury">Luxury & Opulent</option>
-              </select>
-              
-              <motion.button
-                type="submit"
-                className="w-full py-4 bg-transparent border border-gold text-white text-lg tracking-wider uppercase font-light hover:bg-gold hover:text-black transition-all duration-300 relative overflow-hidden group"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <span className="relative z-10">Create My Profile</span>
-                <div className="absolute inset-0 bg-gold transform -translate-x-full group-hover:translate-x-0 transition-transform duration-300" />
-              </motion.button>
-            </form>
-          </motion.div>
-        </div>
+    <section className="relative overflow-hidden bg-[#090908] px-4 py-20" aria-labelledby="personalized-title">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_20%_50%,rgba(212,175,55,0.10),transparent_55%)]" />
+      <div className="relative mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
+        <motion.div initial={{ opacity: 0, x: -24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }}>
+          <p className="mb-3 flex items-center gap-2 text-xs uppercase tracking-[0.28em] text-gold"><Sparkles size={15} /> Your scent profile</p>
+          <h2 id="personalized-title" className="font-display text-4xl font-light tracking-wide text-white md:text-5xl">Choose what feels like you.</h2>
+          <p className="mt-5 max-w-xl text-base leading-7 text-gray-400">Save a few fragrance preferences on this device, then use the LUXE Fragrance Finder to explore matching products.</p>
+          <p className="mt-4 text-xs text-gray-500">Your preferences stay in this browser; this form does not collect contact details.</p>
+        </motion.div>
+
+        <motion.form onSubmit={handleSubmit} initial={{ opacity: 0, x: 24 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: 0.1 }} className="grid gap-4 rounded-2xl border border-gold/15 bg-white/[0.035] p-5 sm:p-7">
+          <label className="grid gap-2 text-xs uppercase tracking-widest text-gray-400">Preferred format
+            <select name="format" value={preferences.format} onChange={handleChange} className="rounded-xl border border-white/10 bg-black/50 px-4 py-3 text-sm normal-case tracking-normal text-white outline-none focus:border-gold/60">
+              <option value="any">No preference</option><option value="spray">Spray</option><option value="roll-on">Roll-on</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-xs uppercase tracking-widest text-gray-400">Preferred intensity
+            <select name="intensity" value={preferences.intensity} onChange={handleChange} className="rounded-xl border border-white/10 bg-black/50 px-4 py-3 text-sm normal-case tracking-normal text-white outline-none focus:border-gold/60">
+              <option value="">Any intensity</option><option value="light">Light</option><option value="medium">Medium</option><option value="strong">Strong</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-xs uppercase tracking-widest text-gray-400">Scent note
+            <select name="note" value={preferences.note} onChange={handleChange} className="rounded-xl border border-white/10 bg-black/50 px-4 py-3 text-sm normal-case tracking-normal text-white outline-none focus:border-gold/60">
+              <option value="">Surprise me</option><option value="woody">Woody</option><option value="floral">Floral</option><option value="citrus">Citrus</option><option value="fresh">Fresh</option><option value="spicy">Spicy</option><option value="sweet">Sweet</option><option value="oriental">Oriental</option>
+            </select>
+          </label>
+          <label className="grid gap-2 text-xs uppercase tracking-widest text-gray-400">When will you wear it?
+            <select name="occasion" value={preferences.occasion} onChange={handleChange} className="rounded-xl border border-white/10 bg-black/50 px-4 py-3 text-sm normal-case tracking-normal text-white outline-none focus:border-gold/60">
+              <option value="">Any occasion</option><option value="daytime">Daytime</option><option value="evening">Evening</option><option value="special">Special occasion</option><option value="all">Everyday</option>
+            </select>
+          </label>
+          <button type="submit" className="mt-2 rounded-full bg-gold px-5 py-3.5 text-sm font-semibold uppercase tracking-[0.16em] text-black transition hover:bg-yellow-300">Save my preferences</button>
+          <p className="min-h-5 text-center text-sm text-emerald-300" aria-live="polite">{saved ? 'Preferences saved on this device.' : ''}</p>
+        </motion.form>
       </div>
     </section>
   );

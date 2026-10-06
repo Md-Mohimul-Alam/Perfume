@@ -1,7 +1,12 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import API from '../api/axios';
+
+const parseNotes = (value) => {
+  const entries = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[,;|•]/) : [];
+  return entries.flatMap((entry) => String(entry).trim().split(/\s+/)).map((note) => note.replace(/[.,]+$/g, '')).filter(Boolean);
+};
 
 // Fallback icons for notes (unchanged)
 const noteIcons = { floral: '🌸', woody: '🌲', citrus: '🍊', oriental: '🕌', amber: '🟠', spicy: '🌶️', sweet: '🍬', fresh: '💧', vanilla: '🍦', fruity: '🍇', musk: '🦌', leather: '👞', aquatic: '🌊', green: '🌿', powdery: '☁️', gourmand: '🍫', default: '✨' };
@@ -18,7 +23,6 @@ const ScentNotes = () => {
   const [selectedNote, setSelectedNote] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(4);
-  const sliderRef = useRef(null);
 
   // Fetch products (or use static data – see commented alternative)
   useEffect(() => {
@@ -38,7 +42,10 @@ const ScentNotes = () => {
         else if (Array.isArray(response.data.data)) raw = response.data.data;
         else if (Array.isArray(response.data.items)) raw = response.data.items;
 
-        const valid = raw.filter(p => p.notes && p.notes.length > 0);
+        const valid = raw
+          .filter((product) => product && product.isActive !== false)
+          .map((product) => ({ ...product, notes: parseNotes(product.notes) }))
+          .filter((product) => product.notes.length > 0);
         setProducts(valid);
         setError(null);
       } catch (err) {
@@ -55,8 +62,7 @@ const ScentNotes = () => {
   const notesData = useMemo(() => {
     const noteMap = new Map();
     products.forEach(product => {
-      // Ensure notes is an array (just in case)
-      const notes = Array.isArray(product.notes) ? product.notes : [product.notes];
+      const notes = parseNotes(product.notes);
       notes.forEach(note => {
         const key = note.trim().toLowerCase();
         if (!noteMap.has(key)) {
@@ -96,11 +102,6 @@ const ScentNotes = () => {
   };
   const nextSlide = () => goToSlide(currentIndex + 1);
   const prevSlide = () => goToSlide(currentIndex - 1);
-
-  const visibleNotes = useMemo(() => {
-    const start = currentIndex * itemsPerView;
-    return notesData.slice(start, start + itemsPerView);
-  }, [notesData, currentIndex, itemsPerView]);
 
   const handleNoteClick = (noteId) => {
     setSelectedNote(selectedNote === noteId ? null : noteId);

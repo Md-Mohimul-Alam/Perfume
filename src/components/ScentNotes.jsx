@@ -3,6 +3,11 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import API from '../api/axios';
 
+const parseNotes = (value) => {
+  const entries = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[,;|•]/) : [];
+  return entries.flatMap((entry) => String(entry).trim().split(/\s+/)).map((note) => note.replace(/[.,]+$/g, '')).filter(Boolean);
+};
+
 const noteIcons = {
   floral: '🌸', woody: '🌲', citrus: '🍊', oriental: '🕌', amber: '🟠',
   spicy: '🌶️', sweet: '🍬', fresh: '💧', vanilla: '🍦', fruity: '🍇',
@@ -32,7 +37,10 @@ const ScentNotes = () => {
         else if (Array.isArray(response.data.products)) raw = response.data.products;
         else if (Array.isArray(response.data.data)) raw = response.data.data;
         else if (Array.isArray(response.data.items)) raw = response.data.items;
-        const valid = raw.filter(p => p.notes && p.notes.length > 0);
+        const valid = raw
+          .filter((product) => product && product.isActive !== false)
+          .map((product) => ({ ...product, notes: parseNotes(product.notes) }))
+          .filter((product) => product.notes.length > 0);
         setProducts(valid);
         setError(null);
       } catch (err) {
@@ -75,11 +83,6 @@ const ScentNotes = () => {
   const goToSlide = (index) => setCurrentIndex(Math.max(0, Math.min(index, totalSlides - 1)));
   const nextSlide = () => goToSlide(currentIndex + 1);
   const prevSlide = () => goToSlide(currentIndex - 1);
-  const visibleNotes = useMemo(() => {
-    const start = currentIndex * itemsPerView;
-    return notesData.slice(start, start + itemsPerView);
-  }, [notesData, currentIndex, itemsPerView]);
-
   const handleNoteClick = (noteId) => setSelectedNote(selectedNote === noteId ? null : noteId);
   const selectedNoteData = notesData.find(n => n.id === selectedNote);
 

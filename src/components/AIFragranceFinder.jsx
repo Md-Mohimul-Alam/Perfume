@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, Sparkles, Search } from 'lucide-react';
+import { ChevronLeft, Sparkles } from 'lucide-react';
 import API from '../api/axios';
 
 // ----- Helper functions (unchanged) -----
@@ -12,9 +12,18 @@ const noteFamilyMap = {
   fresh: 'fresh', aquatic: 'fresh', green: 'fresh', fruity: 'fruity', sweet: 'gourmand', gourmand: 'gourmand'
 };
 
+const parseList = (value, splitWords = false) => {
+  const entries = Array.isArray(value) ? value : typeof value === 'string' ? value.split(/[,;|•]/) : [];
+  return entries.flatMap((entry) => {
+    const text = String(entry).trim();
+    return splitWords ? text.split(/\s+/) : [text];
+  }).map((entry) => entry.trim().replace(/[.,]+$/g, '')).filter(Boolean);
+};
+
 const getScentFamily = (notesArray) => {
-  if (!notesArray || notesArray.length === 0) return 'other';
-  for (const note of notesArray) {
+  const notes = parseList(notesArray, true);
+  if (notes.length === 0) return 'other';
+  for (const note of notes) {
     const lower = note.toLowerCase();
     for (const [key, family] of Object.entries(noteFamilyMap)) {
       if (lower.includes(key)) return family;
@@ -24,6 +33,7 @@ const getScentFamily = (notesArray) => {
 };
 
 const getDisplayPrice = (product) => {
+  if (Number(product.minPrice) > 0) return Number(product.minPrice);
   if (!product.sizes || product.sizes.length === 0) return 0;
   const validSizes = product.sizes.filter(s => s.sellingPrice > 0 && s.sizeMl !== 3);
   if (validSizes.length === 0) return 0;
@@ -50,7 +60,16 @@ const AIFragranceFinder = ({ openProductModal }) => {
         else if (Array.isArray(response.data.products)) raw = response.data.products;
         else if (Array.isArray(response.data.data)) raw = response.data.data;
         else if (Array.isArray(response.data.items)) raw = response.data.items;
-        const valid = raw.filter(p => p.sizes && p.sizes.some(s => s.sellingPrice > 0 && s.sizeMl !== 3));
+        const valid = raw
+          .filter((product) => product && product.isActive !== false)
+          .map((product) => ({
+            ...product,
+            id: product.id || product._id,
+            notes: parseList(product.notes, true),
+            bestFor: parseList(product.bestFor),
+            category: product.type === 'spray' ? 'perfume' : 'oil',
+          }))
+          .filter((product) => Array.isArray(product.sizes) && product.sizes.some((size) => Number(size.sellingPrice) > 0));
         setProducts(valid);
         setError(null);
       } catch (err) {
@@ -81,7 +100,7 @@ const AIFragranceFinder = ({ openProductModal }) => {
     products.forEach(p => { if (p.bestFor && p.bestFor.length > 0) p.bestFor.forEach(bf => bestForSet.add(bf)); });
     const bestForOptions = Array.from(bestForSet).map(val => ({ value: val, label: val.charAt(0).toUpperCase() + val.slice(1) }));
     return [
-      { step: 1, question: "What mood are you seeking?", options: intensityOptions, icon: '✨' },
+      { step: 1, question: "How noticeable would you like your fragrance to be?", options: intensityOptions, icon: '✨' },
       { step: 2, question: "Which scent family resonates with you?", options: familyOptions, icon: '🌸' },
       { step: 3, question: "When will you primarily wear this fragrance?", options: bestForOptions, icon: '📅' }
     ];
@@ -127,7 +146,7 @@ const AIFragranceFinder = ({ openProductModal }) => {
   };
 
   // Step labels
-  const stepLabels = ['Mood', 'Scent Family', 'Occasion'];
+  const stepLabels = ['Intensity', 'Scent Family', 'Occasion'];
 
   // Loading state
   if (loading) {
@@ -185,10 +204,10 @@ const AIFragranceFinder = ({ openProductModal }) => {
           transition={{ duration: 0.8 }}
         >
           <h2 className="font-display text-4xl md:text-5xl text-white mb-4 tracking-widest uppercase font-light gold-gradient">
-            AI Fragrance Finder
+            LUXE Fragrance Finder
           </h2>
           <p className="text-gray-400 text-lg mb-12 tracking-widest font-light">
-            Our advanced AI will help you discover your perfect scent
+            Answer a few quick questions to find fragrances that fit your taste.
           </p>
         </motion.div>
 
@@ -340,11 +359,11 @@ const AIFragranceFinder = ({ openProductModal }) => {
                           animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: index * 0.05 }}
                           className="group bg-white/5 border border-gold/15 rounded-xl p-5 text-left hover:border-gold hover:bg-white/10 transition-all duration-300 cursor-pointer hover:shadow-[0_0_30px_rgba(212,175,55,0.15)]"
-                          onClick={() => openProductModal(product)}
+                          onClick={() => openProductModal?.({ ...product, id: product.id || product._id })}
                         >
                           <div className="flex items-start justify-between">
                             <span className="text-gold text-xs tracking-widest uppercase font-medium">
-                              {product.type === 'spray' ? 'Perfume' : 'Oil'}
+                              {product.type === 'spray' ? 'Spray' : 'Roll-on'}
                             </span>
                             {product.isBestseller && (
                               <span className="bg-red-600 text-white text-[10px] px-2 py-1 rounded-full">Bestseller</span>
