@@ -1,8 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { X, User, Phone, MapPin, Building2, Loader2, CheckCircle, AlertCircle } from 'lucide-react';
+import React, {
+  useEffect,
+  useState,
+} from 'react';
+
+import {
+  motion,
+} from 'framer-motion';
+
+import {
+  X,
+  User,
+  Phone,
+  MapPin,
+  Building2,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+} from 'lucide-react';
+
 import API from '../api/axios';
-import { useCart } from '../contexts/CartContext';
+
+import {
+  useCart,
+} from '../contexts/CartContext';
 
 const CheckoutModal = ({
   isOpen,
@@ -12,124 +32,363 @@ const CheckoutModal = ({
   shippingLabel = 'Inside Dhaka',
   shippingCharge = 70,
 }) => {
-  const { cart, getCartTotal, clearCart } = useCart();
-  const totals = getCartTotal(shippingCharge);
+  const {
+    cart,
+    getCartTotal,
+    clearCart,
+  } = useCart();
 
-  const [form, setForm] = useState({
+  const totals =
+    getCartTotal(
+      shippingCharge
+    );
+
+  const [
+    form,
+    setForm,
+  ] = useState({
     name: '',
     mobile: '',
     address: '',
     city: '',
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState(null);
 
-  // Pre-fill city based on zone
+  const [
+    loading,
+    setLoading,
+  ] = useState(false);
+
+  const [
+    error,
+    setError,
+  ] = useState('');
+
+  const [
+    success,
+    setSuccess,
+  ] = useState(null);
+
+  /* ========================================
+     PRE-FILL CITY
+  ======================================== */
+
   useEffect(() => {
-    if (!isOpen) return;
-    setForm(prev => ({
-      ...prev,
-      city: prev.city || (shippingZone === 'inside' ? 'Dhaka' : ''),
-    }));
-  }, [isOpen, shippingZone]);
-
-  if (!isOpen) return null;
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setError('');
-  };
-
-  const validate = () => {
-    if (!form.name.trim()) return 'Please enter your name';
-    if (!form.mobile.trim() || form.mobile.trim().length < 10) return 'Please enter a valid mobile number';
-    if (!form.address.trim()) return 'Please enter your address';
-    if (!form.city.trim()) return 'Please enter your city';
-    if (cart.length === 0) return 'Your cart is empty';
-    return null;
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
+    if (!isOpen) {
       return;
     }
 
-    setLoading(true);
-    setError('');
+    setForm(
+      (
+        previous
+      ) => ({
+        ...previous,
 
-    try {
-      const payload = {
-        customer: {
-          name: form.name.trim(),
-          mobile: form.mobile.trim(),
-          address: form.address.trim(),
-          city: form.city.trim(),
-        },
-        items: cart.map((item) => ({
-          product: item.productId,
-          name: item.name,
-          sizeMl: item.size,
-          quantity: item.quantity,
-          unitPrice: item.price,
-        })),
-        subtotal: totals.subtotal,
-        tax: 0,                              // ✅ no tax
-        shipping: shippingCharge,            // ✅ from zone
-        totalAmount: totals.total,
-        notes: `Delivery: ${shippingLabel}`,
-      };
+        city:
+          previous.city ||
+          (
+            shippingZone ===
+            'inside'
+              ? 'Dhaka'
+              : ''
+          ),
+      })
+    );
+  }, [
+    isOpen,
+    shippingZone,
+  ]);
 
-      const { data } = await API.post('/orders', payload);
+  if (!isOpen) {
+    return null;
+  }
 
-      setSuccess({
-        orderNo: data.orderNo,
-        total: totals.total,
-      });
+  /* ========================================
+     INPUT
+  ======================================== */
 
-      clearCart();
+  const handleChange =
+    (
+      event
+    ) => {
+      setForm(
+        (
+          previous
+        ) => ({
+          ...previous,
 
-      setTimeout(() => {
-        if (onSuccess) onSuccess(data.order);
-        onClose();
-      }, 4000);
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to place order. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
+          [event.target.name]:
+            event.target.value,
+        })
+      );
+
+      setError('');
+    };
+
+  /* ========================================
+     VALIDATION
+  ======================================== */
+
+  const validate =
+    () => {
+      if (
+        !form.name.trim()
+      ) {
+        return 'Please enter your name';
+      }
+
+      if (
+        !form.mobile.trim() ||
+        form.mobile.trim()
+          .length <
+          10
+      ) {
+        return 'Please enter a valid mobile number';
+      }
+
+      if (
+        !form.address.trim()
+      ) {
+        return 'Please enter your address';
+      }
+
+      if (
+        !form.city.trim()
+      ) {
+        return 'Please enter your city';
+      }
+
+      if (
+        cart.length ===
+        0
+      ) {
+        return 'Your cart is empty';
+      }
+
+      return null;
+    };
+
+  /* ========================================
+     SUBMIT
+  ======================================== */
+
+  const handleSubmit =
+    async (
+      event
+    ) => {
+      event.preventDefault();
+
+      const validationError =
+        validate();
+
+      if (
+        validationError
+      ) {
+        setError(
+          validationError
+        );
+
+        return;
+      }
+
+      setLoading(true);
+      setError('');
+
+      try {
+        const payload =
+          {
+            customer:
+              {
+                name:
+                  form.name.trim(),
+
+                mobile:
+                  form.mobile.trim(),
+
+                address:
+                  form.address.trim(),
+
+                city:
+                  form.city.trim(),
+              },
+
+            items:
+              cart.map(
+                (
+                  item
+                ) => {
+                  /*
+                    Empty bottle
+                  */
+
+                  if (
+                    item.itemType ===
+                    'bottle'
+                  ) {
+                    return {
+                      itemType:
+                        'bottle',
+
+                      bottle:
+                        item.bottleId,
+
+                      name:
+                        item.name,
+
+                      sizeMl:
+                        item.size,
+
+                      quantity:
+                        item.quantity,
+                    };
+                  }
+
+                  /*
+                    Normal perfume
+                  */
+
+                  return {
+                    itemType:
+                      'product',
+
+                    product:
+                      item.productId,
+
+                    name:
+                      item.name,
+
+                    sizeMl:
+                      item.size,
+
+                    quantity:
+                      item.quantity,
+                  };
+                }
+              ),
+
+            /*
+              Backend should calculate
+              trusted item prices.
+
+              These totals are useful only
+              for displaying on the client.
+            */
+
+            subtotal:
+              totals.subtotal,
+
+            tax:
+              0,
+
+            shipping:
+              shippingCharge,
+
+            totalAmount:
+              totals.total,
+
+            notes:
+              `Delivery: ${shippingLabel}`,
+          };
+
+        const {
+          data,
+        } =
+          await API.post(
+            '/orders',
+            payload
+          );
+
+        setSuccess({
+          orderNo:
+            data.orderNo,
+
+          total:
+            totals.total,
+        });
+
+        clearCart();
+
+        setTimeout(
+          () => {
+            if (
+              onSuccess
+            ) {
+              onSuccess(
+                data.order
+              );
+            }
+
+            onClose();
+          },
+          4000
+        );
+      } catch (
+        error
+      ) {
+        setError(
+          error.response
+            ?.data
+            ?.message ||
+            'Failed to place order. Please try again.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
       <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+        initial={{
+          opacity: 0,
+        }}
+        animate={{
+          opacity: 1,
+        }}
         className="absolute inset-0 bg-black/80 backdrop-blur-xl"
-        onClick={!loading && !success ? onClose : undefined}
+        onClick={
+          !loading &&
+          !success
+            ? onClose
+            : undefined
+        }
       />
 
       <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="relative w-full max-w-lg bg-gradient-to-br from-gray-900 via-black to-gray-800 border border-gold/30 rounded-2xl shadow-2xl shadow-gold/20 overflow-hidden max-h-[95vh] overflow-y-auto"
+        initial={{
+          opacity: 0,
+          scale: 0.9,
+          y: 20,
+        }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          y: 0,
+        }}
+        className="relative max-h-[95vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-gold/30 bg-gradient-to-br from-gray-900 via-black to-gray-800 shadow-2xl shadow-gold/20"
       >
         <button
-          onClick={onClose}
-          disabled={loading}
-          className="absolute top-4 right-4 z-10 w-10 h-10 rounded-full border border-gold/30 text-gold flex items-center justify-center hover:bg-gold hover:text-black transition disabled:opacity-50"
+          type="button"
+          onClick={
+            onClose
+          }
+          disabled={
+            loading
+          }
+          className="absolute right-4 top-4 z-10 flex h-10 w-10 items-center justify-center rounded-full border border-gold/30 text-gold transition hover:bg-gold hover:text-black disabled:opacity-50"
         >
-          <X size={20} />
+          <X
+            size={
+              20
+            }
+          />
         </button>
 
-        <div className="bg-gradient-to-r from-gold/10 via-gold/5 to-transparent border-b border-gold/20 p-6">
-          <h2 className="font-display text-2xl text-white font-light tracking-widest uppercase">
+        <div className="border-b border-gold/20 bg-gradient-to-r from-gold/10 via-gold/5 to-transparent p-6">
+          <h2 className="font-display text-2xl font-light uppercase tracking-widest text-white">
             Complete Your Order
           </h2>
-          <p className="text-gold/80 text-xs tracking-widest uppercase mt-1">
+
+          <p className="mt-1 text-xs uppercase tracking-widest text-gold/80">
             Fill in your delivery details
           </p>
         </div>
@@ -137,131 +396,286 @@ const CheckoutModal = ({
         <div className="p-6">
           {success ? (
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-8"
+              initial={{
+                opacity: 0,
+                scale: 0.9,
+              }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+              }}
+              className="py-8 text-center"
             >
-              <CheckCircle size={64} className="text-green-400 mx-auto mb-4" />
-              <h3 className="text-2xl font-display text-white mb-2">Order Placed!</h3>
-              <p className="text-gray-400 mb-4">Thank you for your order</p>
-              <div className="bg-gold/10 border border-gold/30 rounded-lg p-4 inline-block">
-                <p className="text-gold text-sm tracking-widest uppercase">Order No</p>
-                <p className="text-white text-xl font-bold">{success.orderNo}</p>
-                <p className="text-gray-300 text-sm mt-2">Total: ৳{success.total.toFixed(2)}</p>
+              <CheckCircle
+                size={
+                  64
+                }
+                className="mx-auto mb-4 text-green-400"
+              />
+
+              <h3 className="mb-2 font-display text-2xl text-white">
+                Order Placed!
+              </h3>
+
+              <p className="mb-4 text-gray-400">
+                Thank you for your order
+              </p>
+
+              <div className="inline-block rounded-lg border border-gold/30 bg-gold/10 p-4">
+                <p className="text-sm uppercase tracking-widest text-gold">
+                  Order No
+                </p>
+
+                <p className="text-xl font-bold text-white">
+                  {
+                    success.orderNo
+                  }
+                </p>
+
+                <p className="mt-2 text-sm text-gray-300">
+                  Total: ৳
+                  {success.total.toFixed(
+                    2
+                  )}
+                </p>
               </div>
-              <p className="text-gray-500 text-xs mt-6">We'll contact you soon to confirm</p>
+
+              <p className="mt-6 text-xs text-gray-500">
+                We'll contact you soon to confirm
+              </p>
             </motion.div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form
+              onSubmit={
+                handleSubmit
+              }
+              className="space-y-4"
+            >
               {error && (
-                <div className="flex items-start gap-2 bg-red-500/20 border border-red-500/40 text-red-300 text-sm rounded-lg px-4 py-3">
-                  <AlertCircle size={18} className="flex-shrink-0 mt-0.5" />
-                  <span>{error}</span>
+                <div className="flex items-start gap-2 rounded-lg border border-red-500/40 bg-red-500/20 px-4 py-3 text-sm text-red-300">
+                  <AlertCircle
+                    size={
+                      18
+                    }
+                    className="mt-0.5 flex-shrink-0"
+                  />
+
+                  <span>
+                    {
+                      error
+                    }
+                  </span>
                 </div>
               )}
 
               <div>
-                <label className="block text-white text-xs tracking-widest uppercase mb-2">Full Name *</label>
+                <label className="mb-2 block text-xs uppercase tracking-widest text-white">
+                  Full Name *
+                </label>
+
                 <div className="relative">
-                  <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/60" />
+                  <User
+                    size={
+                      18
+                    }
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/60"
+                  />
+
                   <input
                     type="text"
                     name="name"
-                    value={form.name}
-                    onChange={handleChange}
+                    value={
+                      form.name
+                    }
+                    onChange={
+                      handleChange
+                    }
                     placeholder="Your name"
-                    disabled={loading}
-                    className="w-full pl-12 pr-4 py-3 bg-black/50 border border-gold/20 text-white placeholder-gray-500 rounded-lg focus:outline-none focus:border-gold transition disabled:opacity-60"
+                    disabled={
+                      loading
+                    }
+                    className="w-full rounded-lg border border-gold/20 bg-black/50 py-3 pl-12 pr-4 text-white placeholder-gray-500 transition focus:border-gold focus:outline-none disabled:opacity-60"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-white text-xs tracking-widest uppercase mb-2">Mobile Number *</label>
+                <label className="mb-2 block text-xs uppercase tracking-widest text-white">
+                  Mobile Number *
+                </label>
+
                 <div className="relative">
-                  <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/60" />
+                  <Phone
+                    size={
+                      18
+                    }
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/60"
+                  />
+
                   <input
                     type="tel"
                     name="mobile"
-                    value={form.mobile}
-                    onChange={handleChange}
+                    value={
+                      form.mobile
+                    }
+                    onChange={
+                      handleChange
+                    }
                     placeholder="01XXXXXXXXX"
-                    disabled={loading}
-                    className="w-full pl-12 pr-4 py-3 bg-black/50 border border-gold/20 text-white placeholder-gray-500 rounded-lg focus:outline-none focus:border-gold transition disabled:opacity-60"
+                    disabled={
+                      loading
+                    }
+                    className="w-full rounded-lg border border-gold/20 bg-black/50 py-3 pl-12 pr-4 text-white placeholder-gray-500 transition focus:border-gold focus:outline-none disabled:opacity-60"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-white text-xs tracking-widest uppercase mb-2">Delivery Address *</label>
+                <label className="mb-2 block text-xs uppercase tracking-widest text-white">
+                  Delivery Address *
+                </label>
+
                 <div className="relative">
-                  <MapPin size={18} className="absolute left-4 top-4 text-gold/60" />
+                  <MapPin
+                    size={
+                      18
+                    }
+                    className="absolute left-4 top-4 text-gold/60"
+                  />
+
                   <textarea
                     name="address"
-                    value={form.address}
-                    onChange={handleChange}
+                    value={
+                      form.address
+                    }
+                    onChange={
+                      handleChange
+                    }
                     placeholder="House / Road / Area"
                     rows="3"
-                    disabled={loading}
-                    className="w-full pl-12 pr-4 py-3 bg-black/50 border border-gold/20 text-white placeholder-gray-500 rounded-lg focus:outline-none focus:border-gold transition resize-none disabled:opacity-60"
+                    disabled={
+                      loading
+                    }
+                    className="w-full resize-none rounded-lg border border-gold/20 bg-black/50 py-3 pl-12 pr-4 text-white placeholder-gray-500 transition focus:border-gold focus:outline-none disabled:opacity-60"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-white text-xs tracking-widest uppercase mb-2">City *</label>
+                <label className="mb-2 block text-xs uppercase tracking-widest text-white">
+                  City *
+                </label>
+
                 <div className="relative">
-                  <Building2 size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/60" />
+                  <Building2
+                    size={
+                      18
+                    }
+                    className="absolute left-4 top-1/2 -translate-y-1/2 text-gold/60"
+                  />
+
                   <input
                     type="text"
                     name="city"
-                    value={form.city}
-                    onChange={handleChange}
+                    value={
+                      form.city
+                    }
+                    onChange={
+                      handleChange
+                    }
                     placeholder="e.g. Dhaka"
-                    disabled={loading}
-                    className="w-full pl-12 pr-4 py-3 bg-black/50 border border-gold/20 text-white placeholder-gray-500 rounded-lg focus:outline-none focus:border-gold transition disabled:opacity-60"
+                    disabled={
+                      loading
+                    }
+                    className="w-full rounded-lg border border-gold/20 bg-black/50 py-3 pl-12 pr-4 text-white placeholder-gray-500 transition focus:border-gold focus:outline-none disabled:opacity-60"
                     required
                   />
                 </div>
               </div>
 
-              {/* Order Summary — no tax line */}
-              <div className="bg-black/40 border border-gold/15 rounded-lg p-4 mt-6">
-                <p className="text-gold text-xs tracking-widest uppercase mb-3">Order Summary</p>
+              <div className="mt-6 rounded-lg border border-gold/15 bg-black/40 p-4">
+                <p className="mb-3 text-xs uppercase tracking-widest text-gold">
+                  Order Summary
+                </p>
+
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between text-gray-400">
-                    <span>Subtotal</span>
-                    <span>৳{totals.subtotal.toFixed(2)}</span>
+                    <span>
+                      Subtotal
+                    </span>
+
+                    <span>
+                      ৳
+                      {totals.subtotal.toFixed(
+                        2
+                      )}
+                    </span>
                   </div>
+
                   <div className="flex justify-between text-gray-400">
-                    <span>Shipping ({shippingLabel})</span>
-                    <span>৳{shippingCharge.toFixed(2)}</span>
+                    <span>
+                      Shipping (
+                      {
+                        shippingLabel
+                      }
+                      )
+                    </span>
+
+                    <span>
+                      ৳
+                      {shippingCharge.toFixed(
+                        2
+                      )}
+                    </span>
                   </div>
-                  <div className="flex justify-between text-white text-lg font-bold border-t border-gold/20 pt-2 mt-2">
-                    <span>Total</span>
-                    <span className="text-gold">৳{totals.total.toFixed(2)}</span>
+
+                  <div className="mt-2 flex justify-between border-t border-gold/20 pt-2 text-lg font-bold text-white">
+                    <span>
+                      Total
+                    </span>
+
+                    <span className="text-gold">
+                      ৳
+                      {totals.total.toFixed(
+                        2
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
 
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full mt-4 py-4 bg-gradient-to-r from-gold to-yellow-600 text-black font-bold text-base tracking-widest uppercase rounded-lg hover:shadow-lg hover:shadow-gold/30 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                disabled={
+                  loading
+                }
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-gold to-yellow-600 py-4 text-base font-bold uppercase tracking-widest text-black transition-all hover:shadow-lg hover:shadow-gold/30 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {loading ? (
                   <>
-                    <Loader2 size={20} className="animate-spin" /> Placing Order...
+                    <Loader2
+                      size={
+                        20
+                      }
+                      className="animate-spin"
+                    />
+
+                    Placing Order...
                   </>
                 ) : (
-                  <>Place Order · ৳{totals.total.toFixed(2)}</>
+                  <>
+                    Place Order · ৳
+                    {totals.total.toFixed(
+                      2
+                    )}
+                  </>
                 )}
               </button>
 
-              <p className="text-center text-gray-500 text-xs">
+              <p className="text-center text-xs text-gray-500">
                 Cash on Delivery available · We'll call to confirm
               </p>
             </form>
