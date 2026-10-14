@@ -8,6 +8,7 @@ import {
 } from 'framer-motion';
 
 import {
+  AlertCircle,
   ChevronLeft,
   ChevronRight,
   Package,
@@ -38,7 +39,8 @@ const number = (
 const typeLabel = (
   type
 ) =>
-  type === 'roll-on'
+  type ===
+  'roll-on'
     ? 'Roll-on'
     : 'Spray';
 
@@ -82,53 +84,64 @@ const BottleImage = ({
       imageIndex
     ];
 
-  const previous =
-    (
-      event
-    ) => {
-      event.stopPropagation();
+  const previous = (
+    event
+  ) => {
+    event.stopPropagation();
 
-      setImageFailed(
-        false
-      );
+    if (
+      images.length <=
+      1
+    ) {
+      return;
+    }
 
-      setImageIndex(
-        (
-          current
-        ) =>
-          current <= 0
-            ? images.length -
-              1
-            : current -
-              1
-      );
-    };
+    setImageFailed(
+      false
+    );
 
-  const next =
-    (
-      event
-    ) => {
-      event.stopPropagation();
-
-      setImageFailed(
-        false
-      );
-
-      setImageIndex(
-        (
-          current
-        ) =>
-          current >=
-          images.length -
+    setImageIndex(
+      (
+        current
+      ) =>
+        current <= 0
+          ? images.length -
             1
-            ? 0
-            : current +
-              1
-      );
-    };
+          : current - 1
+    );
+  };
+
+  const next = (
+    event
+  ) => {
+    event.stopPropagation();
+
+    if (
+      images.length <=
+      1
+    ) {
+      return;
+    }
+
+    setImageFailed(
+      false
+    );
+
+    setImageIndex(
+      (
+        current
+      ) =>
+        current >=
+        images.length -
+          1
+          ? 0
+          : current + 1
+    );
+  };
 
   return (
     <div className="relative flex h-64 items-center justify-center overflow-hidden bg-gradient-to-br from-white/[0.03] via-transparent to-gold/[0.04]">
+
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(212,175,55,0.10),transparent_65%)]" />
 
       {image &&
@@ -172,7 +185,7 @@ const BottleImage = ({
             onClick={
               previous
             }
-            className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white opacity-0 backdrop-blur-md transition group-hover:opacity-100 hover:border-gold/40 hover:text-gold"
+            className="absolute left-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:border-gold/40 hover:text-gold"
             aria-label="Previous image"
           >
             <ChevronLeft
@@ -187,7 +200,7 @@ const BottleImage = ({
             onClick={
               next
             }
-            className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white opacity-0 backdrop-blur-md transition group-hover:opacity-100 hover:border-gold/40 hover:text-gold"
+            className="absolute right-3 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-black/60 text-white backdrop-blur-md transition hover:border-gold/40 hover:text-gold"
             aria-label="Next image"
           >
             <ChevronRight
@@ -197,7 +210,7 @@ const BottleImage = ({
             />
           </button>
 
-          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 gap-1.5">
+          <div className="absolute bottom-3 left-1/2 z-20 flex max-w-[85%] -translate-x-1/2 flex-wrap justify-center gap-1.5">
             {images.map(
               (
                 _,
@@ -227,7 +240,7 @@ const BottleImage = ({
                       ? 'w-5 bg-gold'
                       : 'w-1.5 bg-white/40'
                   }`}
-                  aria-label={`Image ${index + 1}`}
+                  aria-label={`Bottle image ${index + 1}`}
                 />
               )
             )}
@@ -270,33 +283,45 @@ const BottleCard = ({
       bottle.sellingPrice
     );
 
-  const unavailable =
+  const stockOut =
     stock <= 0 ||
-    bottle.isStockOut ||
-    price <= 0;
+    bottle.isStockOut;
+
+  const hasPrice =
+    price > 0;
+
+  const unavailable =
+    stockOut ||
+    !hasPrice;
 
   const decrease =
     () => {
       setQuantity(
         (
-          old
+          current
         ) =>
           Math.max(
             1,
-            old - 1
+            current - 1
           )
       );
     };
 
   const increase =
     () => {
+      if (
+        stock <= 0
+      ) {
+        return;
+      }
+
       setQuantity(
         (
-          old
+          current
         ) =>
           Math.min(
             stock,
-            old + 1
+            current + 1
           )
       );
     };
@@ -342,24 +367,27 @@ const BottleCard = ({
       />
 
       <div className="flex flex-1 flex-col p-5">
-        <div className="flex items-center justify-between gap-2">
+
+        <div className="flex items-start justify-between gap-2">
+
           <span className="text-[10px] uppercase tracking-[0.18em] text-gold/70">
             Empty Bottle
           </span>
 
           <span
             className={`rounded-full px-2.5 py-1 text-[10px] font-medium ${
-              stock <= 0
+              stockOut
                 ? 'bg-red-500/10 text-red-300'
                 : stock <= 3
                   ? 'bg-amber-500/10 text-amber-300'
                   : 'bg-emerald-500/10 text-emerald-300'
             }`}
           >
-            {stock <= 0
+            {stockOut
               ? 'Out of stock'
               : `${stock} available`}
           </span>
+
         </div>
 
         <h3 className="mt-3 font-display text-xl tracking-wide text-white">
@@ -369,43 +397,60 @@ const BottleCard = ({
         </h3>
 
         <p className="mt-2 min-h-10 text-sm leading-5 text-gray-400">
-          Premium empty perfume bottle for separate purchase.
+          Premium empty perfume bottle available for separate purchase.
         </p>
 
         {Array.isArray(
           bottle.images
         ) &&
-          bottle.images.length >
+          bottle.images
+            .length >
             1 && (
           <p className="mt-2 text-xs text-gray-500">
-            {bottle.images.length}{' '}
-            product images
+            {
+              bottle.images
+                .length
+            }{' '}
+            images available
           </p>
         )}
 
         <div className="mt-auto border-t border-white/[0.06] pt-5">
+
           <div className="flex items-end justify-between gap-4">
+
             <div>
               <span className="block text-[10px] uppercase tracking-[0.2em] text-gray-500">
                 Price
               </span>
 
-              <span className="mt-1 block text-xl font-semibold text-gold">
-                ৳
-                {price.toLocaleString(
-                  'en-BD'
-                )}
-              </span>
+              {hasPrice ? (
+                <span className="mt-1 block text-xl font-semibold text-gold">
+                  ৳
+                  {price.toLocaleString(
+                    'en-BD'
+                  )}
+                </span>
+              ) : (
+                <span className="mt-1 block text-sm font-medium text-amber-300">
+                  Price coming soon
+                </span>
+              )}
             </div>
 
             {!unavailable && (
               <div className="flex items-center overflow-hidden rounded-full border border-white/10 bg-black/40">
+
                 <button
                   type="button"
                   onClick={
                     decrease
                   }
-                  className="flex h-9 w-9 items-center justify-center text-lg text-gray-300 transition hover:bg-white/10 hover:text-white"
+                  disabled={
+                    quantity <=
+                    1
+                  }
+                  className="flex h-9 w-9 items-center justify-center text-lg text-gray-300 transition hover:bg-white/10 hover:text-white disabled:opacity-30"
                   aria-label="Decrease quantity"
                 >
                   −
@@ -431,8 +476,10 @@ const BottleCard = ({
                 >
                   +
                 </button>
+
               </div>
             )}
+
           </div>
 
           <button
@@ -454,12 +501,13 @@ const BottleCard = ({
               }
             />
 
-            {stock <= 0
+            {stockOut
               ? 'Out of Stock'
-              : price <= 0
-                ? 'Unavailable'
+              : !hasPrice
+                ? 'Price Unavailable'
                 : 'Add to Cart'}
           </button>
+
         </div>
       </div>
     </motion.article>
@@ -473,9 +521,11 @@ const BottleCard = ({
 const SkeletonCard =
   () => (
     <div className="animate-pulse overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02]">
+
       <div className="h-64 bg-white/[0.03]" />
 
       <div className="space-y-3 p-5">
+
         <div className="h-3 w-20 rounded bg-white/[0.05]" />
 
         <div className="h-5 w-2/3 rounded bg-white/[0.06]" />
@@ -485,6 +535,7 @@ const SkeletonCard =
         <div className="h-3 w-1/2 rounded bg-white/[0.04]" />
 
         <div className="h-11 rounded-full bg-white/[0.05]" />
+
       </div>
     </div>
   );
@@ -496,6 +547,7 @@ const SkeletonCard =
 const BottleGrid = ({
   bottles = [],
   loading = false,
+  error = '',
 }) => {
   const [
     activeFilter,
@@ -525,28 +577,17 @@ const BottleGrid = ({
       activeFilter,
     ]);
 
-  /*
-    Don't show an empty section before
-    the request has finished.
-  */
-
-  if (
-    !loading &&
-    bottles.length ===
-      0
-  ) {
-    return null;
-  }
-
   return (
     <section
       id="bottles"
       className="relative px-4 py-20 sm:px-6 lg:px-8"
     >
       <div className="mx-auto max-w-7xl">
+
         {/* HEADER */}
 
         <div className="mx-auto mb-10 max-w-2xl text-center">
+
           <p className="text-[11px] uppercase tracking-[0.3em] text-gold/70">
             Bottle Collection
           </p>
@@ -558,68 +599,101 @@ const BottleGrid = ({
           <p className="mt-4 text-sm leading-6 text-gray-400 sm:text-base">
             Need an empty bottle separately? Choose from our available spray and roll-on bottles.
           </p>
+
         </div>
 
-        {/* FILTER */}
+        {/* ERROR */}
 
-        <div className="mb-8 flex flex-wrap justify-center gap-2">
-          {[
-            {
-              key:
-                'all',
+        {error && (
+          <div className="mb-8 flex items-start gap-3 rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <AlertCircle
+              size={
+                18
+              }
+              className="mt-0.5 flex-shrink-0"
+            />
 
-              label:
-                'All Bottles',
-            },
+            <div>
+              <p className="font-medium">
+                Could not load bottles
+              </p>
 
-            {
-              key:
-                'spray',
-
-              label:
-                'Spray',
-            },
-
-            {
-              key:
-                'roll-on',
-
-              label:
-                'Roll-on',
-            },
-          ].map(
-            (
-              filter
-            ) => (
-              <button
-                key={
-                  filter.key
-                }
-                type="button"
-                onClick={() =>
-                  setActiveFilter(
-                    filter.key
-                  )
-                }
-                className={`rounded-full border px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] transition-all ${
-                  activeFilter ===
-                  filter.key
-                    ? 'border-gold bg-gold text-black shadow-[0_6px_20px_rgba(212,175,55,0.25)]'
-                    : 'border-white/[0.08] bg-white/[0.02] text-gray-400 hover:border-gold/35 hover:text-gold'
-                }`}
-              >
+              <p className="mt-1 text-xs text-red-300/80">
                 {
-                  filter.label
+                  error
                 }
-              </button>
-            )
-          )}
-        </div>
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* FILTERS */}
+
+        {!loading &&
+          bottles.length >
+            0 && (
+          <div className="mb-8 flex flex-wrap justify-center gap-2">
+
+            {[
+              {
+                key:
+                  'all',
+
+                label:
+                  'All Bottles',
+              },
+
+              {
+                key:
+                  'spray',
+
+                label:
+                  'Spray',
+              },
+
+              {
+                key:
+                  'roll-on',
+
+                label:
+                  'Roll-on',
+              },
+            ].map(
+              (
+                filter
+              ) => (
+                <button
+                  key={
+                    filter.key
+                  }
+                  type="button"
+                  onClick={() =>
+                    setActiveFilter(
+                      filter.key
+                    )
+                  }
+                  className={`rounded-full border px-5 py-2.5 text-[11px] font-medium uppercase tracking-[0.16em] transition-all ${
+                    activeFilter ===
+                    filter.key
+                      ? 'border-gold bg-gold text-black shadow-[0_6px_20px_rgba(212,175,55,0.25)]'
+                      : 'border-white/[0.08] bg-white/[0.02] text-gray-400 hover:border-gold/35 hover:text-gold'
+                  }`}
+                >
+                  {
+                    filter.label
+                  }
+                </button>
+              )
+            )}
+
+          </div>
+        )}
 
         {/* LOADING */}
 
         {loading ? (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
             {Array.from({
               length: 8,
             }).map(
@@ -634,10 +708,31 @@ const BottleGrid = ({
                 />
               )
             )}
+
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] px-6 py-14 text-center">
+
+            <Package
+              size={
+                42
+              }
+              className="mx-auto text-gold/50"
+            />
+
+            <h3 className="mt-4 font-display text-xl text-white">
+              Bottle Catalogue Temporarily Unavailable
+            </h3>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Please try again shortly.
+            </p>
+
           </div>
         ) : filtered.length ===
           0 ? (
           <div className="rounded-2xl border border-white/[0.07] bg-white/[0.02] px-6 py-14 text-center">
+
             <Package
               size={
                 42
@@ -650,11 +745,13 @@ const BottleGrid = ({
             </h3>
 
             <p className="mt-2 text-sm text-gray-500">
-              No bottles are currently available in this category.
+              Bottle information has not been added yet.
             </p>
+
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+
             {filtered.map(
               (
                 bottle
@@ -669,10 +766,12 @@ const BottleGrid = ({
                 />
               )
             )}
+
           </div>
         )}
 
         {!loading &&
+          !error &&
           filtered.length >
             0 && (
           <p className="mt-8 text-center text-xs uppercase tracking-[0.18em] text-gray-600">
@@ -684,9 +783,10 @@ const BottleGrid = ({
             1
               ? ''
               : 's'}{' '}
-            available
+            listed
           </p>
         )}
+
       </div>
     </section>
   );
