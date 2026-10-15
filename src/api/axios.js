@@ -1,40 +1,115 @@
 import axios from 'axios';
 
-// Get the API base URL from environment variable, with a production fallback
-const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://perfume-stock-management-system-ewa.vercel.app') + '/api';
+/* ========================================
+   API URL
+======================================== */
 
-// Log the base URL in development to verify it's set correctly
-if (import.meta.env.MODE === 'development') {
-  console.log('🔧 API Base URL:', API_BASE_URL);
+const BACKEND_URL =
+  (
+    import.meta.env.VITE_API_URL ||
+    'https://perfume-stock-management-system-ewa.vercel.app'
+  ).replace(/\/$/, '');
+
+const API_BASE_URL =
+  `${BACKEND_URL}/api`;
+
+if (
+  import.meta.env.MODE ===
+  'development'
+) {
+  console.log(
+    '🔧 API Base URL:',
+    API_BASE_URL
+  );
 }
 
-const API = axios.create({
-  baseURL: API_BASE_URL,
-});
+/* ========================================
+   AXIOS INSTANCE
+======================================== */
 
-// Request interceptor to attach token
+const API =
+  axios.create({
+    baseURL:
+      API_BASE_URL,
+
+    timeout:
+      30000,
+  });
+
+/* ========================================
+   REQUEST INTERCEPTOR
+======================================== */
+
 API.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('token');
+    const token =
+      localStorage.getItem(
+        'token'
+      );
+
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization =
+        `Bearer ${token}`;
     }
+
     return config;
   },
-  (error) => Promise.reject(error)
+
+  (error) =>
+    Promise.reject(
+      error
+    )
 );
 
-// Response interceptor to handle 401 errors
+/* ========================================
+   RESPONSE INTERCEPTOR
+======================================== */
+
 API.interceptors.response.use(
-  (response) => response,
+  (response) =>
+    response,
+
   (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+    const token =
+      localStorage.getItem(
+        'token'
+      );
+
+    /*
+      Only redirect if an authenticated
+      session existed.
+
+      Public storefront requests should
+      not redirect customers to /login.
+    */
+
+    if (
+      error.response
+        ?.status ===
+        401 &&
+      token
+    ) {
+      localStorage.removeItem(
+        'token'
+      );
+
+      localStorage.removeItem(
+        'user'
+      );
+
+      window.location.href =
+        '/login';
     }
-    return Promise.reject(error);
+
+    return Promise.reject(
+      error
+    );
   }
 );
+
+export {
+  BACKEND_URL,
+  API_BASE_URL,
+};
 
 export default API;

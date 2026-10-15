@@ -34,16 +34,20 @@ import ProductModal from './components/ProductModal';
    IMAGE URL HELPER
 ======================================== */
 
-const normalizeImageUrl = (url) => {
+const normalizeImageUrl = (
+  url
+) => {
   if (!url) {
     return null;
   }
 
   if (
-    typeof url !== 'string'
+    typeof url !==
+    'string'
   ) {
     if (
-      typeof url === 'object'
+      typeof url ===
+      'object'
     ) {
       url =
         url.url ||
@@ -55,7 +59,8 @@ const normalizeImageUrl = (url) => {
   }
 
   if (
-    typeof url !== 'string' ||
+    typeof url !==
+      'string' ||
     !url.trim()
   ) {
     return null;
@@ -65,10 +70,18 @@ const normalizeImageUrl = (url) => {
     url.trim();
 
   if (
-    cleanUrl.startsWith('http://') ||
-    cleanUrl.startsWith('https://') ||
-    cleanUrl.startsWith('data:') ||
-    cleanUrl.startsWith('blob:')
+    cleanUrl.startsWith(
+      'http://'
+    ) ||
+    cleanUrl.startsWith(
+      'https://'
+    ) ||
+    cleanUrl.startsWith(
+      'data:'
+    ) ||
+    cleanUrl.startsWith(
+      'blob:'
+    )
   ) {
     return cleanUrl;
   }
@@ -76,11 +89,16 @@ const normalizeImageUrl = (url) => {
   const baseUrl =
     (
       import.meta.env.VITE_API_URL ||
-      'https://perfume-stock-management-system.onrender.com'
-    ).replace(/\/$/, '');
+      'https://perfume-stock-management-system-ewa.vercel.app'
+    ).replace(
+      /\/$/,
+      ''
+    );
 
   return `${baseUrl}${
-    cleanUrl.startsWith('/')
+    cleanUrl.startsWith(
+      '/'
+    )
       ? ''
       : '/'
   }${cleanUrl}`;
@@ -94,18 +112,25 @@ const normalizeBottleImages = (
   images
 ) => {
   if (
-    !Array.isArray(images)
+    !Array.isArray(
+      images
+    )
   ) {
     return [];
   }
 
   return images
-    .map((image) =>
-      normalizeImageUrl(
+    .map(
+      (
         image
-      )
+      ) =>
+        normalizeImageUrl(
+          image
+        )
     )
-    .filter(Boolean);
+    .filter(
+      Boolean
+    );
 };
 
 /* ========================================
@@ -144,6 +169,11 @@ const AppContent = () => {
     bottlesLoading,
     setBottlesLoading,
   ] = useState(true);
+
+  const [
+    bottlesError,
+    setBottlesError,
+  ] = useState('');
 
   /* ======================================
      WISHLIST
@@ -202,7 +232,9 @@ const AppContent = () => {
           parsed
         );
       }
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
         'Failed to load wishlist:',
         error
@@ -222,7 +254,9 @@ const AppContent = () => {
           wishlist
         )
       );
-    } catch (error) {
+    } catch (
+      error
+    ) {
       console.error(
         'Failed to save wishlist:',
         error
@@ -249,7 +283,8 @@ const AppContent = () => {
               '/products?showOnClient=true&limit=10000'
             );
 
-          let raw = [];
+          let raw =
+            [];
 
           if (
             Array.isArray(
@@ -310,8 +345,8 @@ const AppContent = () => {
                       : 'oil';
 
                   /*
-                    Keep your existing
-                    rule that hides 3ml.
+                    Keep existing rule:
+                    hide 3ml products.
                   */
 
                   const validSizes =
@@ -324,7 +359,8 @@ const AppContent = () => {
                       ) =>
                         Number(
                           size.sizeMl
-                        ) !== 3
+                        ) !==
+                        3
                     );
 
                   const validPrices =
@@ -491,7 +527,8 @@ const AppContent = () => {
                 (
                   product
                 ) =>
-                  product.sizes
+                  product
+                    .sizes
                     .length >
                   0
               );
@@ -499,10 +536,15 @@ const AppContent = () => {
           setProductsList(
             transformed
           );
-        } catch (error) {
+        } catch (
+          error
+        ) {
           console.error(
             'Product fetch error:',
-            error
+            error.response
+              ?.data ||
+              error.message ||
+              error
           );
 
           setProductsList(
@@ -530,6 +572,10 @@ const AppContent = () => {
             true
           );
 
+          setBottlesError(
+            ''
+          );
+
           const {
             data,
           } =
@@ -537,20 +583,34 @@ const AppContent = () => {
               '/inventory/bottles/public'
             );
 
+          console.log(
+            'Bottle API response:',
+            data
+          );
+
           const raw =
             Array.isArray(
               data
             )
               ? data
               : Array.isArray(
-                    data?.bottles
+                    data
+                      ?.bottles
                   )
-                ? data.bottles
+                ? data
+                    .bottles
                 : Array.isArray(
-                      data?.data
+                      data
+                        ?.data
                     )
-                  ? data.data
+                  ? data
+                      .data
                   : [];
+
+          console.log(
+            'Raw bottles:',
+            raw
+          );
 
           const normalized =
             raw
@@ -567,24 +627,28 @@ const AppContent = () => {
                 ) => {
                   const sizeMl =
                     Number(
-                      bottle.sizeMl
+                      bottle
+                        .sizeMl
                     );
 
                   const currentStock =
                     Number(
-                      bottle.currentStock ||
-                      0
+                      bottle
+                        .currentStock ??
+                        0
                     );
 
                   const sellingPrice =
                     Number(
-                      bottle.sellingPrice ||
-                      0
+                      bottle
+                        .sellingPrice ??
+                        0
                     );
 
                   const images =
                     normalizeBottleImages(
-                      bottle.images
+                      bottle
+                        .images
                     );
 
                   return {
@@ -622,37 +686,30 @@ const AppContent = () => {
 
                     isStockOut:
                       Boolean(
-                        bottle.isStockOut
-                      ),
+                        bottle
+                          .isStockOut
+                      ) ||
+                      currentStock <=
+                        0,
                   };
                 }
               )
               /*
-                Public endpoint should
-                already only return bottles
-                with sellingPrice > 0.
+                IMPORTANT:
 
-                Keeping this extra client
-                check protects the UI.
+                Do NOT filter by sellingPrice here.
+
+                Bottles with price 0 must still
+                appear on the client.
+
+                BottleGrid will display:
+                "Price coming soon".
               */
-              .filter(
-                (
-                  bottle
-                ) =>
-                  bottle
-                    .sellingPrice >
-                  0
-              )
               .sort(
                 (
                   a,
                   b
                 ) => {
-                  /*
-                    Spray first,
-                    then roll-on.
-                  */
-
                   const typeOrder = {
                     spray: 0,
                     'roll-on': 1,
@@ -687,17 +744,35 @@ const AppContent = () => {
                 }
               );
 
+          console.log(
+            'Normalized bottles:',
+            normalized
+          );
+
           setBottlesList(
             normalized
           );
-        } catch (error) {
+        } catch (
+          error
+        ) {
           console.error(
             'Bottle fetch error:',
-            error
+            error.response
+              ?.data ||
+              error.message ||
+              error
           );
 
           setBottlesList(
             []
+          );
+
+          setBottlesError(
+            error.response
+              ?.data
+              ?.message ||
+              error.message ||
+              'Failed to load bottles'
           );
         } finally {
           setBottlesLoading(
@@ -799,7 +874,8 @@ const AppContent = () => {
       ) => {
         if (
           !product ||
-          product.isStockOut
+          product
+            .isStockOut
         ) {
           return;
         }
@@ -814,13 +890,15 @@ const AppContent = () => {
               size
             ) =>
               Number(
-                size.sellingPrice
+                size
+                  .sellingPrice
               ) >
               0
           );
 
         if (
-          availableSizes.length ===
+          availableSizes
+            .length ===
           0
         ) {
           return;
@@ -842,7 +920,9 @@ const AppContent = () => {
               )
           )[0];
 
-        if (smallest) {
+        if (
+          smallest
+        ) {
           addToCart(
             product,
             smallest,
@@ -862,7 +942,9 @@ const AppContent = () => {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-black text-white">
 
-      {/* Background */}
+      {/* ==================================
+          BACKGROUND
+      ================================== */}
 
       <EnhancedBackground />
 
@@ -872,7 +954,9 @@ const AppContent = () => {
         }
       />
 
-      {/* Header */}
+      {/* ==================================
+          HEADER
+      ================================== */}
 
       <Header
         toggleCart={() =>
@@ -890,7 +974,9 @@ const AppContent = () => {
         }
       />
 
-      {/* Main */}
+      {/* ==================================
+          MAIN
+      ================================== */}
 
       <main className="relative z-10">
 
@@ -929,6 +1015,9 @@ const AppContent = () => {
           loading={
             bottlesLoading
           }
+          error={
+            bottlesError
+          }
         />
 
         {/* ==================================
@@ -955,7 +1044,9 @@ const AppContent = () => {
 
       </main>
 
-      {/* Footer */}
+      {/* ==================================
+          FOOTER
+      ================================== */}
 
       <Footer />
 
